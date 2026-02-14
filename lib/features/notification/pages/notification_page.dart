@@ -8,6 +8,7 @@ import '../../../core/constants/app_routes.dart';
 import '../../../data/models/notification_model.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/custom_confirm_dialog.dart';
+import '../../../core/widgets/error_state_widget.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -211,10 +212,9 @@ class _NotificationPageState extends State<NotificationPage> {
                   }
 
                   if (provider.errorMessage != null) {
-                    return _buildError(
-                      screenWidth,
-                      provider.errorMessage!,
-                      _loadNotifications,
+                    return ErrorStateWidget(
+                      message: provider.errorMessage!,
+                      onRetry: _loadNotifications,
                     );
                   }
 
@@ -597,55 +597,6 @@ class _NotificationPageState extends State<NotificationPage> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildError(double screenWidth, String message, VoidCallback onRetry) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.06),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: screenWidth * 0.15,
-              color: AppColors.error.withValues(alpha: 0.5),
-            ),
-            SizedBox(height: screenWidth * 0.04),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: screenWidth * 0.038,
-                color: Colors.black54,
-              ),
-            ),
-            SizedBox(height: screenWidth * 0.04),
-            ElevatedButton(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenWidth * 0.08,
-                  vertical: screenWidth * 0.03,
-                ),
-              ),
-              child: Text(
-                'Coba Lagi',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.038,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

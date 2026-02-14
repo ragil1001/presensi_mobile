@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../../providers/izin_provider.dart';
 import '../../../data/models/pengajuan_izin_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/custom_confirm_dialog.dart';
 import '../widgets/izin_form_header.dart';
 import '../widgets/izin_form_section_label.dart';
 import '../widgets/izin_kategori_selector.dart';
@@ -14,7 +14,9 @@ import '../widgets/izin_date_range_selector.dart';
 import '../widgets/izin_file_upload_section.dart';
 
 class FormPengajuanIzinPage extends StatefulWidget {
-  const FormPengajuanIzinPage({super.key});
+  final PengajuanIzin? editData;
+
+  const FormPengajuanIzinPage({super.key, this.editData});
 
   @override
   State<FormPengajuanIzinPage> createState() => _FormPengajuanIzinPageState();
@@ -31,6 +33,8 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
   File? _selectedFile;
   bool _isSubmitting = false;
   bool _isLoadingCategories = true;
+
+  bool get _isEditMode => widget.editData != null;
 
   @override
   void initState() {
@@ -49,26 +53,53 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
 
     try {
       await izinProvider.loadKategoriIzin();
-      await izinProvider.loadSubKategoriCutiKhusus();
 
       if (mounted) {
         setState(() {
           _isLoadingCategories = false;
         });
 
-        debugPrint('✅ Categories loaded: ${izinProvider.kategoriList.length}');
-        debugPrint(
-          '✅ Sub-categories loaded: ${izinProvider.subKategoriList.length}',
-        );
+        // If editing, pre-populate fields
+        if (_isEditMode) {
+          _populateEditData(izinProvider);
+        }
       }
     } catch (e) {
-      debugPrint('❌ Error loading categories: $e');
+      debugPrint('Error loading categories: $e');
       if (mounted) {
         setState(() {
           _isLoadingCategories = false;
         });
       }
     }
+  }
+
+  void _populateEditData(IzinProvider izinProvider) {
+    final data = widget.editData!;
+
+    // Find matching kategori
+    for (final kat in izinProvider.kategoriList) {
+      if (kat.value == data.kategoriIzin) {
+        _selectedKategori = kat;
+
+        // Find matching sub-kategori if applicable
+        if (kat.hasSubKategori && data.kategoriIzinId != null) {
+          for (final sub in kat.subKategoriItems) {
+            if (sub.id == data.kategoriIzinId) {
+              _selectedSubKategori = sub;
+              break;
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    _tanggalMulai = data.tanggalMulai;
+    _tanggalSelesai = data.tanggalSelesai;
+    _keteranganController.text = data.keterangan ?? '';
+
+    setState(() {});
   }
 
   Future<void> _pickDate(bool isMulai) async {
@@ -99,8 +130,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         if (isMulai) {
           _tanggalMulai = picked;
 
-          if (_selectedKategori?.value == 'cuti_khusus' &&
-              _selectedSubKategori != null) {
+          if (_selectedKategori != null && _hasAutoEndDate) {
             _calculateTanggalSelesai();
           } else if (_tanggalSelesai != null &&
               _tanggalSelesai!.isBefore(picked)) {
@@ -113,46 +143,48 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     }
   }
 
-  Future<void> _calculateTanggalSelesai() async {
-    if (_tanggalMulai == null || _selectedSubKategori == null) return;
+  /// Whether the end date is auto-calculated
+  bool get _hasAutoEndDate {
+    if (_selectedKategori == null) return false;
+    if (_selectedKategori!.hasSubKategori) {
+      return _selectedSubKategori != null &&
+          _selectedSubKategori!.durasiHari > 0;
+    }
+    return _selectedKategori!.jumlahHari != null &&
+        _selectedKategori!.jumlahHari! > 0;
+  }
+
+  void _calculateTanggalSelesai() {
+    if (_tanggalMulai == null) return;
 
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
-    final result = await izinProvider.hitungTanggalSelesai(
-      tanggalMulai: _tanggalMulai!,
-      subKategoriIzin: _selectedSubKategori!.value,
-    );
+    int? jumlahHari;
 
-    if (result != null && mounted) {
-      setState(() {
-        _tanggalSelesai = DateTime.parse(result['tanggal_selesai']);
-      });
+    if (_selectedKategori!.hasSubKategori && _selectedSubKategori != null) {
+      jumlahHari = _selectedSubKategori!.durasiHari;
+    } else {
+      jumlahHari = _selectedKategori!.jumlahHari;
+    }
+
+    if (jumlahHari != null && jumlahHari > 0) {
+      final result = izinProvider.hitungTanggalSelesai(
+        tanggalMulai: _tanggalMulai!,
+        jumlahHari: jumlahHari,
+      );
+
+      if (result != null && mounted) {
+        setState(() {
+          _tanggalSelesai = result;
+        });
+      }
     }
   }
 
-  Future<void> _pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      );
-
-      if (result != null) {
-        final file = File(result.files.single.path!);
-        final fileSize = await file.length();
-
-        if (fileSize > 10 * 1024 * 1024) {
-          if (!mounted) return;
-          CustomSnackbar.showError(context, 'Ukuran file maksimal 10MB');
-          return;
-        }
-
-        setState(() {
-          _selectedFile = file;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      CustomSnackbar.showError(context, 'Gagal memilih file: ${e.toString()}');
+  void _onFileSelected(File? file) {
+    if (file != null) {
+      setState(() {
+        _selectedFile = file;
+      });
     }
   }
 
@@ -162,27 +194,17 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     });
   }
 
-  bool get _isDokumenWajib {
-    if (_selectedKategori == null) return false;
-    return _selectedKategori!.value != 'izin';
-  }
+  bool get _isTanggalSelesaiEditable => !_hasAutoEndDate;
 
-  bool get _isTanggalSelesaiEditable {
-    return _selectedKategori?.value != 'cuti_khusus';
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  Future<void> _confirmAndSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
 
     if (_selectedKategori == null) {
       CustomSnackbar.showWarning(context, 'Kategori izin wajib dipilih');
       return;
     }
 
-    if (_selectedKategori!.value == 'cuti_khusus' &&
-        _selectedSubKategori == null) {
+    if (_selectedKategori!.hasSubKategori && _selectedSubKategori == null) {
       CustomSnackbar.showWarning(context, 'Jenis cuti khusus wajib dipilih');
       return;
     }
@@ -197,28 +219,33 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
       return;
     }
 
-    if (_selectedKategori!.value == 'cuti_tahunan') {
-      final durasiHari = _tanggalSelesai!.difference(_tanggalMulai!).inDays + 1;
-      final sisaCuti = _selectedKategori!.sisaCuti ?? 0;
-
-      if (durasiHari > sisaCuti) {
-        CustomSnackbar.showError(
-          context,
-          'Sisa cuti tahunan Anda tidak mencukupi!\n'
-          'Sisa: $sisaCuti hari, Diminta: $durasiHari hari',
-        );
-        return;
-      }
-    }
-
-    if (_isDokumenWajib && _selectedFile == null) {
+    // File is mandatory for new submissions
+    if (!_isEditMode && _selectedFile == null) {
       CustomSnackbar.showWarning(
         context,
-        'Dokumen pendukung wajib diupload untuk ${_selectedKategori!.label}',
+        'Dokumen pendukung wajib diupload',
       );
       return;
     }
 
+    // Show confirmation dialog
+    final confirmed = await CustomConfirmDialog.show(
+      context: context,
+      title: _isEditMode ? 'Simpan Perubahan?' : 'Ajukan Izin?',
+      message: _isEditMode
+          ? 'Apakah Anda yakin ingin menyimpan perubahan pengajuan izin ini?'
+          : 'Apakah Anda yakin ingin mengajukan izin ini?',
+      confirmText: _isEditMode ? 'Simpan' : 'Ya, Ajukan',
+      icon: _isEditMode ? Icons.edit_outlined : Icons.send_outlined,
+      iconColor: AppColors.primary,
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    _submit();
+  }
+
+  Future<void> _submit() async {
     setState(() {
       _isSubmitting = true;
     });
@@ -226,16 +253,44 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     try {
       final izinProvider = Provider.of<IzinProvider>(context, listen: false);
 
-      final success = await izinProvider.ajukanIzin(
-        kategoriIzin: _selectedKategori!.value,
-        subKategoriIzin: _selectedSubKategori?.value,
-        tanggalMulai: _tanggalMulai!,
-        tanggalSelesai: _tanggalSelesai,
-        keterangan: _keteranganController.text.trim().isEmpty
-            ? null
-            : _keteranganController.text.trim(),
-        fileDokumen: _selectedFile,
+      // Resolve the kategori_izin_id
+      final kategoriIzinId = izinProvider.resolveKategoriIzinId(
+        _selectedKategori!,
+        _selectedSubKategori,
       );
+
+      if (kategoriIzinId == null) {
+        if (mounted) {
+          CustomSnackbar.showError(context, 'Kategori izin tidak valid');
+          setState(() => _isSubmitting = false);
+        }
+        return;
+      }
+
+      bool success;
+
+      if (_isEditMode) {
+        success = await izinProvider.updateIzin(
+          id: widget.editData!.id,
+          kategoriIzinId: kategoriIzinId,
+          tanggalMulai: _tanggalMulai!,
+          tanggalSelesai: _tanggalSelesai!,
+          keterangan: _keteranganController.text.trim().isEmpty
+              ? null
+              : _keteranganController.text.trim(),
+          fileDokumen: _selectedFile,
+        );
+      } else {
+        success = await izinProvider.ajukanIzin(
+          kategoriIzinId: kategoriIzinId,
+          tanggalMulai: _tanggalMulai!,
+          tanggalSelesai: _tanggalSelesai!,
+          keterangan: _keteranganController.text.trim().isEmpty
+              ? null
+              : _keteranganController.text.trim(),
+          fileDokumen: _selectedFile!,
+        );
+      }
 
       if (!mounted) return;
 
@@ -244,7 +299,12 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
       });
 
       if (success) {
-        CustomSnackbar.showSuccess(context, 'Pengajuan izin berhasil dikirim');
+        CustomSnackbar.showSuccess(
+          context,
+          _isEditMode
+              ? 'Pengajuan izin berhasil diperbarui'
+              : 'Pengajuan izin berhasil dikirim',
+        );
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         Navigator.pop(context, true);
@@ -261,7 +321,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         _isSubmitting = false;
       });
 
-      CustomSnackbar.showError(context, 'Terjadi kesalahan: ${e.toString()}');
+      CustomSnackbar.showError(context, 'Terjadi kesalahan. Silakan coba lagi.');
     }
   }
 
@@ -291,6 +351,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                 padding: padding,
                 titleFontSize: titleFontSize,
                 backIconSize: backIconSize,
+                isEditMode: _isEditMode,
               ),
               const Expanded(
                 child: Center(
@@ -321,6 +382,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                     padding: padding,
                     titleFontSize: titleFontSize,
                     backIconSize: backIconSize,
+                    isEditMode: _isEditMode,
                   ),
                   Expanded(
                     child: Center(
@@ -400,6 +462,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                   padding: padding,
                   titleFontSize: titleFontSize,
                   backIconSize: backIconSize,
+                  isEditMode: _isEditMode,
                 ),
                 Expanded(
                   child: Form(
@@ -431,14 +494,16 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                                 _selectedKategori = selected;
                                 _selectedSubKategori = null;
                                 _tanggalSelesai = null;
-                                _selectedFile = null;
+                                _selectedFile =
+                                    _isEditMode ? _selectedFile : null;
                               });
                             }
                           },
                         ),
 
-                        // Sub Kategori (only for cuti khusus)
-                        if (_selectedKategori?.value == 'cuti_khusus') ...[
+                        // Sub Kategori (only for categories with sub-items)
+                        if (_selectedKategori != null &&
+                            _selectedKategori!.hasSubKategori) ...[
                           SizedBox(height: screenHeight * 0.024),
                           IzinFormSectionLabel(
                             label: 'Jenis Cuti Khusus',
@@ -452,9 +517,9 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                             errorFontSize: errorFontSize,
                             selectedSubKategori: _selectedSubKategori,
                             isSubmitting: _isSubmitting,
-                            isCutiKhusus:
-                                _selectedKategori?.value == 'cuti_khusus',
-                            subKategoriList: izinProvider.subKategoriList,
+                            isCutiKhusus: true,
+                            subKategoriList:
+                                _selectedKategori!.subKategoriItems,
                             onSelected: (selected) {
                               if (selected != null) {
                                 setState(() {
@@ -478,7 +543,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                         ),
                         SizedBox(height: screenHeight * 0.01),
 
-                        // Tanggal Selesai label
+                        // Tanggal Range
                         IzinDateRangeSelector(
                           screenWidth: screenWidth,
                           screenHeight: screenHeight,
@@ -533,7 +598,8 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                             ),
                             filled: true,
                             fillColor: Colors.grey.shade50,
-                            contentPadding: EdgeInsets.all(screenWidth * 0.035),
+                            contentPadding:
+                                EdgeInsets.all(screenWidth * 0.035),
                           ),
                           style: TextStyle(fontSize: inputFontSize),
                         ),
@@ -542,19 +608,56 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                         // Upload File
                         IzinFormSectionLabel(
                           label: 'Dokumen Pendukung (PDF/JPG/PNG)',
-                          isRequired: _isDokumenWajib,
+                          isRequired: !_isEditMode || !widget.editData!.hasFile,
                           labelFontSize: labelFontSize,
                         ),
                         SizedBox(height: screenHeight * 0.01),
+
+                        // Show existing file info in edit mode when no new file selected
+                        if (_isEditMode &&
+                            _selectedFile == null &&
+                            widget.editData!.hasFile)
+                          Container(
+                            padding: EdgeInsets.all(screenWidth * 0.03),
+                            margin:
+                                EdgeInsets.only(bottom: screenHeight * 0.01),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.grey.shade100,
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.attach_file,
+                                  color: Colors.grey.shade600,
+                                  size: 20,
+                                ),
+                                SizedBox(width: screenWidth * 0.02),
+                                Expanded(
+                                  child: Text(
+                                    'File dokumen sudah ada. Upload baru untuk mengganti.',
+                                    style: TextStyle(
+                                      fontSize: (screenWidth * 0.032)
+                                          .clamp(12.0, 13.0),
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                         IzinFileUploadSection(
                           screenWidth: screenWidth,
                           screenHeight: screenHeight,
                           errorFontSize: errorFontSize,
                           selectedFile: _selectedFile,
                           isSubmitting: _isSubmitting,
-                          isDokumenWajib: _isDokumenWajib,
+                          isDokumenWajib:
+                              !_isEditMode || !widget.editData!.hasFile,
                           kategoriLabel: _selectedKategori?.label,
-                          onPickFile: _pickFile,
+                          onFileSelected: _onFileSelected,
                           onRemoveFile: _removeFile,
                         ),
 
@@ -562,7 +665,8 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
 
                         // Submit Button
                         ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submit,
+                          onPressed:
+                              _isSubmitting ? null : _confirmAndSubmit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -581,16 +685,20 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                                     18.0,
                                     20.0,
                                   ),
-                                  width: (screenWidth * 0.05).clamp(18.0, 20.0),
+                                  width:
+                                      (screenWidth * 0.05).clamp(18.0, 20.0),
                                   child: const CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(
                                       Colors.white,
                                     ),
                                   ),
                                 )
                               : Text(
-                                  'AJUKAN IZIN',
+                                  _isEditMode
+                                      ? 'SIMPAN PERUBAHAN'
+                                      : 'AJUKAN IZIN',
                                   style: TextStyle(
                                     fontSize: buttonFontSize,
                                     fontWeight: FontWeight.bold,

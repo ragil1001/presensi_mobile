@@ -218,7 +218,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           );
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal mendapatkan lokasi: ${e.toString()}';
+        _errorMessage = 'Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.';
       });
     }
   }
@@ -367,7 +367,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       if (mounted && !_isDisposed) {
         CustomSnackbar.showError(
           context,
-          'Failed to update location: ${e.toString()}',
+          'Gagal memperbarui lokasi',
         );
       }
     }

@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
 
-/// File upload section widget for the izin form, showing either an upload
+/// File upload section widget for the izin/lembur form, showing either an upload
 /// button or the selected file info with a remove button.
+/// Supports both file picker and camera capture.
 class IzinFileUploadSection extends StatelessWidget {
   final double screenWidth;
   final double screenHeight;
@@ -12,7 +15,7 @@ class IzinFileUploadSection extends StatelessWidget {
   final bool isSubmitting;
   final bool isDokumenWajib;
   final String? kategoriLabel;
-  final VoidCallback onPickFile;
+  final ValueChanged<File?> onFileSelected;
   final VoidCallback onRemoveFile;
 
   const IzinFileUploadSection({
@@ -24,9 +27,201 @@ class IzinFileUploadSection extends StatelessWidget {
     required this.isSubmitting,
     required this.isDokumenWajib,
     required this.kategoriLabel,
-    required this.onPickFile,
+    required this.onFileSelected,
     required this.onRemoveFile,
   });
+
+  void _showPickerOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.05,
+              vertical: screenHeight * 0.02,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                Text(
+                  'Pilih Sumber Dokumen',
+                  style: TextStyle(
+                    fontSize: (screenWidth * 0.045).clamp(16.0, 18.0),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                _buildOption(
+                  context: ctx,
+                  icon: Icons.upload_file_outlined,
+                  iconColor: AppColors.primary,
+                  label: 'Upload File',
+                  description: 'Pilih file PDF, JPG, atau PNG',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickFile(context);
+                  },
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                _buildOption(
+                  context: ctx,
+                  icon: Icons.camera_alt_outlined,
+                  iconColor: AppColors.info,
+                  label: 'Ambil Foto',
+                  description: 'Gunakan kamera untuk mengambil foto',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _takePhoto(context);
+                  },
+                ),
+                SizedBox(height: screenHeight * 0.015),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOption({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String description,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: EdgeInsets.all(screenWidth * 0.035),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: iconColor.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(screenWidth * 0.025),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            SizedBox(width: screenWidth * 0.03),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: (screenWidth * 0.038).clamp(14.0, 15.0),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: (screenWidth * 0.03).clamp(11.0, 12.0),
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey.shade400,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFile(BuildContext context) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final fileSize = await file.length();
+
+        if (fileSize > 10 * 1024 * 1024) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ukuran file maksimal 10MB')),
+          );
+          return;
+        }
+
+        onFileSelected(file);
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memilih file: $e')),
+      );
+    }
+  }
+
+  Future<void> _takePhoto(BuildContext context) async {
+    try {
+      final picker = ImagePicker();
+      final XFile? photo = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (photo != null) {
+        final file = File(photo.path);
+        final fileSize = await file.length();
+
+        if (fileSize > 10 * 1024 * 1024) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ukuran foto maksimal 10MB')),
+          );
+          return;
+        }
+
+        onFileSelected(file);
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengambil foto: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +230,7 @@ class IzinFileUploadSection extends StatelessWidget {
       children: [
         if (selectedFile == null)
           InkWell(
-            onTap: isSubmitting ? null : onPickFile,
+            onTap: isSubmitting ? null : () => _showPickerOptions(context),
             child: Container(
               padding: EdgeInsets.symmetric(
                 vertical: screenHeight * 0.03,
@@ -60,7 +255,7 @@ class IzinFileUploadSection extends StatelessWidget {
                   ),
                   SizedBox(height: screenHeight * 0.01),
                   Text(
-                    'Tap untuk upload file',
+                    'Tap untuk upload file atau ambil foto',
                     style: TextStyle(
                       fontSize: (screenWidth * 0.035).clamp(13.0, 14.0),
                       fontWeight: FontWeight.w600,
@@ -111,7 +306,7 @@ class IzinFileUploadSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        selectedFile!.path.split('/').last,
+                        selectedFile!.path.split(RegExp(r'[/\\]')).last,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: (screenWidth * 0.035).clamp(13.0, 14.0),

@@ -102,7 +102,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal menginisialisasi kamera: ${e.toString()}';
+        _errorMessage = 'Gagal menginisialisasi kamera. Pastikan izin kamera telah diberikan.';
       });
     }
   }

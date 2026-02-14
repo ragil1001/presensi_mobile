@@ -1,11 +1,14 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../core/error/app_exception.dart';
+import '../core/network/api_client.dart';
 import '../data/models/pengajuan_izin_model.dart';
 
 enum IzinState { initial, loading, loaded, error }
 
 class IzinProvider with ChangeNotifier {
-  IzinState _state = IzinState.loaded;
+  IzinState _state = IzinState.initial;
   bool _isLoading = false;
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -13,144 +16,46 @@ class IzinProvider with ChangeNotifier {
 
   // Pagination
   int _currentPage = 1;
-  final int _perPage = 15;
+  int _lastPage = 1;
+  final int _perPage = 20;
   bool _hasMore = false;
   bool _isLoadingMore = false;
 
-  // Dummy data
-  final List<PengajuanIzin> _izinList = [
-    PengajuanIzin(
-      id: 1,
-      kategoriIzin: 'sakit',
-      deskripsiIzin: 'Sakit',
-      tanggalMulai: DateTime(2026, 2, 5),
-      tanggalSelesai: DateTime(2026, 2, 6),
-      durasiHari: 2,
-      keterangan: 'Demam tinggi',
-      status: 'disetujui',
-      statusText: 'Disetujui',
-      catatanAdmin: 'Semoga lekas sembuh',
-      diprosesPada: DateTime(2026, 2, 5, 10, 30),
-      diprosesOleh: 'Admin',
-      createdAt: DateTime(2026, 2, 4, 8, 0),
-    ),
-    PengajuanIzin(
-      id: 2,
-      kategoriIzin: 'izin',
-      deskripsiIzin: 'Izin',
-      tanggalMulai: DateTime(2026, 2, 10),
-      tanggalSelesai: DateTime(2026, 2, 10),
-      durasiHari: 1,
-      keterangan: 'Urusan keluarga',
-      status: 'pending',
-      statusText: 'Pending',
-      createdAt: DateTime(2026, 2, 9, 14, 0),
-    ),
-    PengajuanIzin(
-      id: 3,
-      kategoriIzin: 'cuti_tahunan',
-      deskripsiIzin: 'Cuti Tahunan',
-      tanggalMulai: DateTime(2026, 1, 20),
-      tanggalSelesai: DateTime(2026, 1, 22),
-      durasiHari: 3,
-      keterangan: 'Liburan keluarga',
-      status: 'ditolak',
-      statusText: 'Ditolak',
-      catatanAdmin: 'Jadwal bentrok dengan deadline project',
-      diprosesPada: DateTime(2026, 1, 19, 16, 0),
-      diprosesOleh: 'Admin',
-      createdAt: DateTime(2026, 1, 18, 9, 0),
-    ),
-    PengajuanIzin(
-      id: 4,
-      kategoriIzin: 'cuti_khusus',
-      subKategoriIzin: 'menikah',
-      deskripsiIzin: 'Cuti Khusus - Menikah',
-      durasiOtomatis: 3,
-      tanggalMulai: DateTime(2026, 3, 1),
-      tanggalSelesai: DateTime(2026, 3, 3),
-      durasiHari: 3,
-      keterangan: 'Pernikahan',
-      status: 'dibatalkan',
-      statusText: 'Dibatalkan',
-      createdAt: DateTime(2026, 2, 1, 10, 0),
-    ),
-  ];
+  // Data
+  List<PengajuanIzin> _izinList = [];
+  List<KategoriIzin> _kategoriList = [];
 
-  final List<KategoriIzin> _kategoriList = [
-    KategoriIzin(
-      value: 'sakit',
-      label: 'Sakit',
-      kode: 'S',
-      hasSubKategori: false,
-      butuhDokumen: true,
-      deskripsi: 'Izin sakit dengan surat dokter',
-    ),
-    KategoriIzin(
-      value: 'izin',
-      label: 'Izin',
-      kode: 'I',
-      hasSubKategori: false,
-      butuhDokumen: false,
-      deskripsi: 'Izin tidak masuk kerja',
-    ),
-    KategoriIzin(
-      value: 'cuti_tahunan',
-      label: 'Cuti Tahunan',
-      kode: 'CT',
-      hasSubKategori: false,
-      butuhDokumen: false,
-      maxHari: 12,
-      sisaCuti: 10,
-      deskripsi: 'Cuti tahunan karyawan',
-    ),
-    KategoriIzin(
-      value: 'cuti_khusus',
-      label: 'Cuti Khusus',
-      kode: 'CK',
-      hasSubKategori: true,
-      butuhDokumen: true,
-      deskripsi: 'Cuti khusus sesuai ketentuan',
-    ),
-  ];
-
-  final List<SubKategoriCutiKhusus> _subKategoriList = [
-    SubKategoriCutiKhusus(
-      value: 'menikah',
-      label: 'Menikah',
-      durasiHari: 3,
-      deskripsi: 'Karyawan menikah',
-    ),
-    SubKategoriCutiKhusus(
-      value: 'anak_menikah',
-      label: 'Anak Menikah',
-      durasiHari: 2,
-      deskripsi: 'Anak karyawan menikah',
-    ),
-    SubKategoriCutiKhusus(
-      value: 'khitanan_anak',
-      label: 'Khitanan Anak',
-      durasiHari: 2,
-      deskripsi: 'Khitanan anak karyawan',
-    ),
-    SubKategoriCutiKhusus(
-      value: 'keluarga_meninggal',
-      label: 'Keluarga Meninggal',
-      durasiHari: 2,
-      deskripsi: 'Anggota keluarga meninggal dunia',
-    ),
-  ];
+  final ApiClient _apiClient = ApiClient();
 
   IzinState get state => _state;
   List<PengajuanIzin> get izinList => _izinList;
   List<KategoriIzin> get kategoriList => _kategoriList;
-  List<SubKategoriCutiKhusus> get subKategoriList => _subKategoriList;
   bool get isLoading => _isLoading;
   bool get isSubmitting => _isSubmitting;
   bool get isLoadingMore => _isLoadingMore;
   bool get hasMore => _hasMore;
   String? get errorMessage => _errorMessage;
   String? get errorType => _errorType;
+
+  /// Get sub-kategori list from the selected kategori's nested items
+  List<SubKategoriCutiKhusus> get subKategoriList {
+    for (final kat in _kategoriList) {
+      if (kat.hasSubKategori && kat.subKategoriItems.isNotEmpty) {
+        return kat.subKategoriItems;
+      }
+    }
+    return [];
+  }
+
+  /// Get sub-kategori for a specific kategori
+  List<SubKategoriCutiKhusus> getSubKategoriFor(String kategoriValue) {
+    for (final kat in _kategoriList) {
+      if (kat.value == kategoriValue) {
+        return kat.subKategoriItems;
+      }
+    }
+    return [];
+  }
 
   // Filtered lists by status
   List<PengajuanIzin> get pengajuanList =>
@@ -162,92 +67,293 @@ class IzinProvider with ChangeNotifier {
   List<PengajuanIzin> get dibatalkanList =>
       _izinList.where((i) => i.status == 'dibatalkan').toList();
 
-  // TODO: Implement with real backend
-  Future<void> loadIzinList() async {
-    _currentPage = 1;
-    _hasMore = false; // Set true when backend returns more pages
-    _state = IzinState.loaded;
+  Future<void> loadIzinList({String status = 'semua'}) async {
+    _isLoading = true;
+    _state = IzinState.loading;
+    _errorMessage = null;
+    _errorType = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.dio.get(
+        '/mobile/izin',
+        queryParameters: {
+          'status': status,
+          'page': 1,
+          'per_page': _perPage,
+        },
+      );
+
+      final data = response.data;
+      final List<dynamic> items = data['data'] ?? [];
+
+      _izinList = items.map((json) => PengajuanIzin.fromJson(json)).toList();
+      _currentPage = data['current_page'] ?? 1;
+      _lastPage = data['last_page'] ?? 1;
+      _hasMore = _currentPage < _lastPage;
+      _state = IzinState.loaded;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      _state = IzinState.error;
+      _errorMessage = appEx.userMessage;
+      _errorType = 'network';
+    } catch (e) {
+      _state = IzinState.error;
+      _errorMessage = AppException.fromException(e).userMessage;
+      _errorType = 'network';
+      debugPrint('Error loading izin list: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadPengajuan() async {
-    _currentPage = 1;
-    _hasMore = false;
-    _state = IzinState.loaded;
+    await loadIzinList();
   }
 
-  /// Load next page of data. Call from ScrollController listener.
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
     _isLoadingMore = true;
     notifyListeners();
 
     try {
-      // TODO: Replace with API call:
-      // final response = await api.getIzinList(page: _currentPage + 1, perPage: _perPage);
-      // _izinList.addAll(response.data);
-      // _hasMore = response.hasMore;
-      // _currentPage++;
-      await Future.delayed(const Duration(milliseconds: 500));
-      _hasMore = false; // No more dummy data
+      final response = await _apiClient.dio.get(
+        '/mobile/izin',
+        queryParameters: {
+          'status': 'semua',
+          'page': _currentPage + 1,
+          'per_page': _perPage,
+        },
+      );
+
+      final data = response.data;
+      final List<dynamic> items = data['data'] ?? [];
+
+      _izinList.addAll(
+        items.map((json) => PengajuanIzin.fromJson(json)).toList(),
+      );
+      _currentPage = data['current_page'] ?? _currentPage;
+      _lastPage = data['last_page'] ?? _lastPage;
+      _hasMore = _currentPage < _lastPage;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      debugPrint('Error loading more izin: ${appEx.userMessage}');
     } catch (e) {
-      // Handle error silently for load-more
+      debugPrint('Error loading more izin: $e');
     } finally {
       _isLoadingMore = false;
       notifyListeners();
     }
   }
 
+  /// Load kategori izin from backend API
   Future<void> loadKategoriIzin() async {
-    // Data already loaded at initialization
-  }
+    try {
+      final response = await _apiClient.dio.get('/mobile/izin-kategori');
+      final List<dynamic> items = response.data['data'] ?? [];
 
-  Future<void> loadSubKategoriCutiKhusus() async {
-    // Data already loaded at initialization
+      _kategoriList =
+          items.map((json) => KategoriIzin.fromApiJson(json)).toList();
+      notifyListeners();
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      debugPrint('Error loading kategori izin: ${appEx.userMessage}');
+      _errorMessage = appEx.userMessage;
+    } catch (e) {
+      debugPrint('Error loading kategori izin: $e');
+      _errorMessage = AppException.fromException(e).userMessage;
+    }
   }
 
   Future<PengajuanIzin?> getIzinDetail(int id) async {
     try {
-      return _izinList.firstWhere((i) => i.id == id);
-    } catch (_) {
+      final response = await _apiClient.dio.get('/mobile/izin/$id');
+      final data = response.data['data'];
+      if (data != null) {
+        return PengajuanIzin.fromJson(data);
+      }
+      return null;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      debugPrint('Error loading izin detail: ${appEx.userMessage}');
+      _errorMessage = appEx.userMessage;
+      return null;
+    } catch (e) {
+      debugPrint('Error loading izin detail: $e');
+      _errorMessage = AppException.fromException(e).userMessage;
       return null;
     }
   }
 
   Future<PengajuanIzin?> getDetail(int id) async => getIzinDetail(id);
 
-  Future<bool> submitIzin(Map<String, dynamic> data) async => true;
-
+  /// Submit new izin request
   Future<bool> ajukanIzin({
-    required String kategoriIzin,
-    String? subKategoriIzin,
+    required int kategoriIzinId,
     required DateTime tanggalMulai,
-    DateTime? tanggalSelesai,
+    required DateTime tanggalSelesai,
     String? keterangan,
-    File? fileDokumen,
-  }) async => true;
-
-  Future<Map<String, dynamic>?> hitungTanggalSelesai({
-    required DateTime tanggalMulai,
-    required String subKategoriIzin,
+    required File fileDokumen,
   }) async {
-    // Find matching sub-category to compute end date
+    _isSubmitting = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
-      final sub = _subKategoriList.firstWhere(
-        (s) => s.value == subKategoriIzin,
-      );
-      final endDate = tanggalMulai.add(Duration(days: sub.durasiHari - 1));
-      return {
+      final formData = FormData.fromMap({
+        'kategori_izin_id': kategoriIzinId,
+        'tanggal_mulai':
+            '${tanggalMulai.year}-${tanggalMulai.month.toString().padLeft(2, '0')}-${tanggalMulai.day.toString().padLeft(2, '0')}',
         'tanggal_selesai':
-            '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}',
-      };
-    } catch (_) {
-      return null;
+            '${tanggalSelesai.year}-${tanggalSelesai.month.toString().padLeft(2, '0')}-${tanggalSelesai.day.toString().padLeft(2, '0')}',
+        if (keterangan != null && keterangan.isNotEmpty)
+          'keterangan': keterangan,
+        'file_pendukung': await MultipartFile.fromFile(
+          fileDokumen.path,
+          filename: fileDokumen.path.split('/').last,
+        ),
+      });
+
+      await _apiClient.dio.post(
+        '/mobile/izin',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      // Reload the list
+      await loadIzinList();
+      return true;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      _errorMessage = appEx.userMessage;
+      debugPrint('Error submitting izin: $e');
+      return false;
+    } catch (e) {
+      _errorMessage = AppException.fromException(e).userMessage;
+      debugPrint('Error submitting izin: $e');
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
     }
   }
 
-  Future<bool> cancelIzin(int id) async => true;
-  Future<bool> batalkanPengajuan(int id) async => true;
-  Future<bool> hapusPengajuan(int id) async => true;
+  /// Update existing izin (only when status is PENDING)
+  Future<bool> updateIzin({
+    required int id,
+    required int kategoriIzinId,
+    required DateTime tanggalMulai,
+    required DateTime tanggalSelesai,
+    String? keterangan,
+    File? fileDokumen,
+  }) async {
+    _isSubmitting = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final map = <String, dynamic>{
+        'kategori_izin_id': kategoriIzinId,
+        'tanggal_mulai':
+            '${tanggalMulai.year}-${tanggalMulai.month.toString().padLeft(2, '0')}-${tanggalMulai.day.toString().padLeft(2, '0')}',
+        'tanggal_selesai':
+            '${tanggalSelesai.year}-${tanggalSelesai.month.toString().padLeft(2, '0')}-${tanggalSelesai.day.toString().padLeft(2, '0')}',
+        'keterangan': keterangan ?? '',
+      };
+
+      if (fileDokumen != null) {
+        map['file_pendukung'] = await MultipartFile.fromFile(
+          fileDokumen.path,
+          filename: fileDokumen.path.split('/').last,
+        );
+      }
+
+      final formData = FormData.fromMap(map);
+
+      await _apiClient.dio.post(
+        '/mobile/izin/$id',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      await loadIzinList();
+      return true;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      _errorMessage = appEx.userMessage;
+      debugPrint('Error updating izin: $e');
+      return false;
+    } catch (e) {
+      _errorMessage = AppException.fromException(e).userMessage;
+      debugPrint('Error updating izin: $e');
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  /// Delete izin (only when status is PENDING)
+  Future<bool> hapusPengajuan(int id) async {
+    _errorMessage = null;
+
+    try {
+      await _apiClient.dio.delete('/mobile/izin/$id');
+      _izinList.removeWhere((i) => i.id == id);
+      notifyListeners();
+      return true;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      _errorMessage = appEx.userMessage;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = AppException.fromException(e).userMessage;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Cancel izin (only when status is DISETUJUI -> sets to DIBATALKAN)
+  Future<bool> batalkanPengajuan(int id) async {
+    _errorMessage = null;
+
+    try {
+      await _apiClient.dio.post('/mobile/izin/$id/batalkan');
+      await loadIzinList();
+      return true;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException ? e.error as AppException : AppException.fromDioException(e);
+      _errorMessage = appEx.userMessage;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = AppException.fromException(e).userMessage;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Calculate tanggal selesai based on jumlah_hari from master data
+  DateTime? hitungTanggalSelesai({
+    required DateTime tanggalMulai,
+    required int jumlahHari,
+  }) {
+    if (jumlahHari <= 0) return null;
+    return tanggalMulai.add(Duration(days: jumlahHari - 1));
+  }
+
+  /// Resolve the kategori_izin_id for submission
+  int? resolveKategoriIzinId(
+    KategoriIzin kategori,
+    SubKategoriCutiKhusus? subKategori,
+  ) {
+    if (kategori.hasSubKategori && subKategori != null) {
+      return subKategori.id;
+    }
+    return kategori.id;
+  }
 
   void clearError() {
     _errorMessage = null;

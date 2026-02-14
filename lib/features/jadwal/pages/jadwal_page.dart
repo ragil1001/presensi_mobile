@@ -7,6 +7,7 @@ import '../../../providers/presensi_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 
 class JadwalPage extends StatefulWidget {
   const JadwalPage({super.key});
@@ -347,9 +348,12 @@ class _JadwalPageState extends State<JadwalPage> {
                   }
 
                   if (provider.errorMessage != null) {
-                    return _buildErrorState(
-                      provider.errorMessage!,
-                      screenWidth,
+                    return ErrorStateWidget(
+                      message: provider.errorMessage!,
+                      onRetry: () {
+                        _lastRefreshTime = null;
+                        _loadJadwal();
+                      },
                     );
                   }
 
@@ -472,51 +476,6 @@ class _JadwalPageState extends State<JadwalPage> {
               width: isVerySmallScreen ? 35 : 40,
               height: isVerySmallScreen ? 35 : 40,
               borderRadius: 10,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String message, double screenWidth) {
-    final bodyFontSize = (screenWidth * 0.034).clamp(11.0, 15.0);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: AppColors.error.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: bodyFontSize),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                _lastRefreshTime = null;
-                _loadJadwal();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Coba Lagi'),
             ),
           ],
         ),

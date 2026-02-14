@@ -13,6 +13,7 @@ import '../../../core/widgets/custom_confirm_dialog.dart';
 import '../../../core/widgets/custom_popup_menu.dart';
 import '../../../core/widgets/custom_filter_chip.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import 'form_pengajuan_izin_page.dart';
 import 'detail_izin_page.dart';
 
@@ -93,18 +94,24 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
           label: 'Detail',
           icon: Icons.info_outline,
         ),
-        if (izin.canCancel)
+        if (izin.canEdit)
           const CustomPopupMenuItem(
-            value: 'cancel',
-            label: 'Batalkan',
-            icon: Icons.cancel_outlined,
-            isDestructive: true,
+            value: 'edit',
+            label: 'Edit',
+            icon: Icons.edit_outlined,
           ),
         if (izin.canDelete)
           const CustomPopupMenuItem(
             value: 'delete',
             label: 'Hapus',
             icon: Icons.delete_outline,
+            isDestructive: true,
+          ),
+        if (izin.canCancel)
+          const CustomPopupMenuItem(
+            value: 'cancel',
+            label: 'Batalkan',
+            icon: Icons.cancel_outlined,
             isDestructive: true,
           ),
       ],
@@ -120,10 +127,24 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       if (mounted && _shouldRefresh) {
         _loadData();
       }
+    } else if (result == "edit") {
+      _navigateToEdit(izin);
     } else if (result == "cancel") {
       _confirmCancel(izin.id);
     } else if (result == "delete") {
       _confirmDelete(izin.id);
+    }
+  }
+
+  Future<void> _navigateToEdit(izin) async {
+    final result = await Navigator.push(
+      context,
+      AppPageRoute.to(FormPengajuanIzinPage(editData: izin)),
+    );
+
+    if (result == true && mounted) {
+      _lastRefreshTime = null;
+      _loadData();
     }
   }
 
@@ -209,47 +230,12 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
                   Expanded(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: isVerySmallScreen ? 48 : 64,
-                            color: AppColors.error.withValues(alpha: 0.5),
-                          ),
-                          SizedBox(height: isVerySmallScreen ? 12 : 16),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: padding),
-                            child: Text(
-                              izinProvider.errorMessage ?? 'Terjadi kesalahan',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: (screenWidth * 0.035).clamp(
-                                  12.0,
-                                  15.0,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: isVerySmallScreen ? 12 : 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              _lastRefreshTime = null;
-                              _loadData();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
+                    child: ErrorStateWidget(
+                      message: izinProvider.errorMessage ?? 'Terjadi kesalahan',
+                      onRetry: () {
+                        _lastRefreshTime = null;
+                        _loadData();
+                      },
                     ),
                   ),
                 ],

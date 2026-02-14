@@ -462,7 +462,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                     if (value == null || value.isEmpty) {
                                       return AppStrings.passwordRequired;
                                     }
-                                    if (value.length < 6) {
+                                    if (value.length < 8) {
                                       return AppStrings.passwordMinLength;
                                     }
                                     return null;

@@ -15,7 +15,7 @@ class AppStrings {
   // Validation Messages
   static const String usernameRequired = 'Username tidak boleh kosong';
   static const String passwordRequired = 'Password tidak boleh kosong';
-  static const String passwordMinLength = 'Password minimal 6 karakter';
+  static const String passwordMinLength = 'Password minimal 8 karakter';
 
   // Success Messages
   static const String loginSuccess = 'Login berhasil!';

@@ -8,6 +8,7 @@ import '../../izin/pages/data_izin_page.dart';
 import '../../../features/navigation/widgets/bottom_curve_clipper.dart';
 import '../../../providers/presensi_provider.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import '../../../core/widgets/custom_dropdown_dialog.dart';
 import '../../../core/constants/app_font_size.dart';
 
@@ -68,45 +69,25 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     final projectStart = DateTime.parse(presensiData.projectInfo!.tanggalMulai);
     final today = DateTime.now();
 
-    // ✅ CRITICAL FIX: Calculate periods based on project start date
-    // Period always starts on the same day of month as project start
     final periods = <PeriodOption>[];
 
-    // Calculate how many complete months have passed since project start
-    int monthsDiff =
-        (today.year - projectStart.year) * 12 +
-        (today.month - projectStart.month);
+    // Start from 6 months ago (but not before project start), end at current month
+    final sixMonthsAgo = DateTime(today.year, today.month - 5, 1);
+    DateTime cursor = sixMonthsAgo.isBefore(DateTime(projectStart.year, projectStart.month, 1))
+        ? DateTime(projectStart.year, projectStart.month, 1)
+        : sixMonthsAgo;
+    final lastMonth = DateTime(today.year, today.month, 1);
 
-    // If today's day is before project start day, we're still in previous period
-    if (today.day < projectStart.day) {
-      monthsDiff--;
-    }
-
-    // Generate periods from project start to 3 months ahead
-    for (int i = 0; i <= monthsDiff + 3; i++) {
-      // Calculate period start by adding months to project start
-      final periodStart = DateTime(
-        projectStart.year,
-        projectStart.month + i,
-        projectStart.day,
-      );
-
-      // Period end is 1 day before next period starts
+    while (cursor.isBefore(lastMonth) || cursor.isAtSameMomentAs(lastMonth)) {
+      final periodStart = DateTime(cursor.year, cursor.month, 1);
       final periodEnd = DateTime(
-        projectStart.year,
-        projectStart.month + i + 1,
-        projectStart.day,
-      ).subtract(const Duration(days: 1));
+        cursor.year,
+        cursor.month + 1,
+        0,
+      ); // last day of month
 
-      // Format label
-      final startMonth = DateFormat('MMM yyyy', 'id_ID').format(periodStart);
-      final endMonth = DateFormat('MMM yyyy', 'id_ID').format(periodEnd);
+      final label = DateFormat('MMMM yyyy', 'id_ID').format(periodStart);
 
-      final label = startMonth == endMonth
-          ? startMonth
-          : '$startMonth - $endMonth';
-
-      // Value format: yyyy-MM of the period start
       periods.add(
         PeriodOption(
           value: DateFormat('yyyy-MM').format(periodStart),
@@ -115,7 +96,12 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           endDate: periodEnd,
         ),
       );
+
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
+
+    // Reverse so newest month is first
+    periods.sort((a, b) => b.startDate.compareTo(a.startDate));
 
     if (periods.isEmpty) {
       if (mounted) {
@@ -126,10 +112,10 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
       return;
     }
 
-    // ✅ Find current period (where today falls within start and end date)
+    // Find current period (calendar month containing today)
     final defaultPeriod = periods.firstWhere(
       (p) => !today.isBefore(p.startDate) && !today.isAfter(p.endDate),
-      orElse: () => periods.last,
+      orElse: () => periods.first,
     );
 
     if (mounted) {
@@ -259,11 +245,10 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                             ),
                             SizedBox(height: screenHeight * 0.02),
                             if (provider.errorMessageStatistik != null)
-                              _buildErrorContainer(
-                                provider.errorMessageStatistik!,
-                                bodyFontSize,
-                                screenWidth,
-                                screenHeight,
+                              ErrorStateWidget(
+                                compact: true,
+                                message: provider.errorMessageStatistik!,
+                                onRetry: _loadStatistik,
                               )
                             else if (provider.statistikPeriode == null)
                               _buildEmptyContainer(
@@ -371,46 +356,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     );
   }
 
-  Widget _buildErrorContainer(
-    String error,
-    double bodyFontSize,
-    double screenWidth,
-    double screenHeight,
-  ) {
-    return Container(
-      padding: EdgeInsets.all(screenWidth * 0.04),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(screenWidth * 0.04),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: screenWidth * 0.025,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.error_outline,
-            color: Colors.red.shade700,
-            size: (screenWidth * 0.1).clamp(32.0, 44.0),
-          ),
-          SizedBox(height: screenHeight * 0.015),
-          Text(
-            error,
-            style: TextStyle(
-              color: Colors.red.shade700,
-              fontSize: bodyFontSize,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyContainer(
     double bodyFontSize,
     double screenWidth,
@@ -463,6 +408,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     final hadir = statistik.hadir;
     final izin = statistik.izin;
     final alpa = statistik.alpa;
+    final libur = statistik.libur;
     final sakit = statistik.sakit;
     final cuti = statistik.cuti;
     final lembur = statistik.lembur;
@@ -547,7 +493,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           SizedBox(height: (screenHeight * 0.014).clamp(8.0, 14.0)),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // STATISTIK UTAMA: Hadir, Izin, Alpa
+          // STATISTIK UTAMA: Hadir, Izin, Alpa, Libur
           Row(
             children: [
               Expanded(
@@ -585,6 +531,20 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                   valueColor: alpa > 0 ? Colors.red : Colors.black87,
                   barColor: alpa > 0 ? Colors.red : Colors.grey,
                   progress: alpa / daysInPeriod,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  screenHeight: screenHeight,
+                ),
+              ),
+              _buildVerticalDivider(screenHeight),
+              Expanded(
+                child: _buildRekapItem(
+                  title: "Libur",
+                  value: "$libur Hari",
+                  valueColor: libur > 0 ? Colors.blueGrey : Colors.black87,
+                  barColor: libur > 0 ? Colors.blueGrey : Colors.grey,
+                  progress: libur / daysInPeriod,
                   screenWidth: screenWidth,
                   titleFontSize: statTitleFontSize,
                   valueFontSize: statValueFontSize,
@@ -633,16 +593,16 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           SizedBox(height: isVerySmallScreen ? 8 : 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // LEMBUR & TERLAMBAT
+          // TERLAMBAT & LEMBUR
           Row(
             children: [
               Expanded(
                 child: _buildRekapItem(
-                  title: "Lembur",
-                  value: "$lembur Kali",
-                  valueColor: lembur > 0 ? Colors.teal : Colors.black87,
-                  barColor: lembur > 0 ? Colors.teal : Colors.grey,
-                  progress: hadir > 0 ? (lembur / hadir) : 0.0,
+                  title: "Terlambat",
+                  value: "$terlambat Kali",
+                  valueColor: terlambat > 0 ? Colors.amber : Colors.black87,
+                  barColor: terlambat > 0 ? Colors.amber : Colors.grey,
+                  progress: hadir > 0 ? (terlambat / hadir) : 0.0,
                   screenWidth: screenWidth,
                   titleFontSize: statTitleFontSize,
                   valueFontSize: statValueFontSize,
@@ -652,11 +612,11 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
               _buildVerticalDivider(screenHeight),
               Expanded(
                 child: _buildRekapItem(
-                  title: "Terlambat",
-                  value: "$terlambat Kali",
-                  valueColor: terlambat > 0 ? Colors.amber : Colors.black87,
-                  barColor: terlambat > 0 ? Colors.amber : Colors.grey,
-                  progress: hadir > 0 ? (terlambat / hadir) : 0.0,
+                  title: "Lembur",
+                  value: "$lembur Kali",
+                  valueColor: lembur > 0 ? Colors.teal : Colors.black87,
+                  barColor: lembur > 0 ? Colors.teal : Colors.grey,
+                  progress: hadir > 0 ? (lembur / hadir) : 0.0,
                   screenWidth: screenWidth,
                   titleFontSize: statTitleFontSize,
                   valueFontSize: statValueFontSize,

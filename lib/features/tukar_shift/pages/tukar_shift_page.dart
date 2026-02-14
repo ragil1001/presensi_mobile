@@ -11,6 +11,8 @@ import '../../../core/widgets/custom_confirm_dialog.dart';
 import '../../../core/widgets/custom_popup_menu.dart';
 import '../../../core/widgets/custom_bottom_sheet.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
+import '../../../core/widgets/custom_filter_chip.dart';
 import 'tukar_shift_request_page.dart';
 import 'tukar_shift_detail_page.dart';
 
@@ -22,7 +24,7 @@ class TukarShiftPage extends StatefulWidget {
 }
 
 class _TukarShiftPageState extends State<TukarShiftPage> {
-  String _filterTab = "all";
+  String _filterTab = "Semua";
   String _filterJenis = "all";
   DateTimeRange? _customRange;
   late ScrollController _scrollController;
@@ -42,12 +44,25 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     super.dispose();
   }
 
+  String? get _currentStatus {
+    const map = {
+      'Pending': 'pending',
+      'Disetujui': 'disetujui',
+      'Ditolak': 'ditolak',
+      'Dibatalkan': 'dibatalkan',
+    };
+    return map[_filterTab];
+  }
+
+  String? get _currentJenis => _filterJenis == 'all' ? null : _filterJenis;
+
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       final provider = Provider.of<TukarShiftProvider>(context, listen: false);
       provider.loadMore(
-        jenis: _filterJenis,
+        status: _currentStatus,
+        jenis: _currentJenis,
         startDate: _customRange?.start.toString().split(' ')[0],
         endDate: _customRange?.end.toString().split(' ')[0],
       );
@@ -57,7 +72,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
   void _loadData() {
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
     provider.loadTukarShiftRequests(
-      jenis: _filterJenis,
+      status: _currentStatus,
+      jenis: _currentJenis,
       startDate: _customRange?.start.toString().split(' ')[0],
       endDate: _customRange?.end.toString().split(' ')[0],
     );
@@ -93,17 +109,18 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
               SizedBox(height: screenWidth * 0.025),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _buildFilterChip('Semua', 'all', setModalState, screenWidth),
-                  _buildFilterChip(
+                  _buildJenisChip('Semua', 'all', setModalState, screenWidth),
+                  _buildJenisChip(
                     'Permintaan Saya',
                     'saya',
                     setModalState,
                     screenWidth,
                   ),
-                  _buildFilterChip(
-                    'Permintaan Orang Lain',
-                    'orang_lain',
+                  _buildJenisChip(
+                    'Permintaan Masuk',
+                    'masuk',
                     setModalState,
                     screenWidth,
                   ),
@@ -212,7 +229,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     );
   }
 
-  Widget _buildFilterChip(
+  Widget _buildJenisChip(
     String label,
     String value,
     StateSetter setModalState,
@@ -221,17 +238,47 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     final selected = _filterJenis == value;
     final chipFontSize = (screenWidth * 0.034).clamp(11.0, 13.0);
 
-    return ChoiceChip(
-      label: Text(label, style: TextStyle(fontSize: chipFontSize)),
-      selected: selected,
-      onSelected: (bool selected) {
+    return GestureDetector(
+      onTap: () {
         setModalState(() => _filterJenis = value);
         setState(() => _filterJenis = value);
       },
-      selectedColor: AppColors.primary,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.textPrimary,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.04,
+          vertical: screenWidth * 0.02,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.divider,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: chipFontSize,
+            color: selected ? Colors.white : AppColors.textPrimary,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }
@@ -250,6 +297,13 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           icon: Icons.info_outline,
         ),
         if (jenis == 'saya' && status == 'pending')
+          const CustomPopupMenuItem(
+            value: 'delete',
+            label: 'Hapus',
+            icon: Icons.delete_outline,
+            isDestructive: true,
+          ),
+        if (jenis == 'saya' && status == 'disetujui')
           const CustomPopupMenuItem(
             value: 'cancel',
             label: 'Batalkan',
@@ -282,12 +336,43 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           AppPageRoute.to(TukarShiftDetailPage(request: request)),
         );
         break;
+      case "delete":
+        _showConfirmDialog(
+          title: "Hapus Permintaan",
+          message:
+              "Apakah Anda yakin ingin menghapus permintaan tukar shift ini?",
+          confirmText: "Ya, Hapus",
+          isDestructive: true,
+          onConfirm: () async {
+            final provider = Provider.of<TukarShiftProvider>(
+              context,
+              listen: false,
+            );
+            final success = await provider.hapusTukarShift(request.id);
+            if (mounted) {
+              if (success) {
+                CustomSnackbar.showSuccess(
+                  context,
+                  'Permintaan berhasil dihapus',
+                );
+                _loadData();
+              } else {
+                CustomSnackbar.showError(
+                  context,
+                  provider.errorMessage ?? 'Gagal menghapus',
+                );
+              }
+            }
+          },
+        );
+        break;
       case "cancel":
         _showConfirmDialog(
-          title: "Batalkan Permintaan",
+          title: "Batalkan Tukar Shift",
           message:
-              "Apakah Anda yakin ingin membatalkan permintaan tukar shift ini?",
+              "Apakah Anda yakin ingin membatalkan tukar shift ini? Jadwal akan dikembalikan ke semula.",
           confirmText: "Ya, Batalkan",
+          isDestructive: true,
           onConfirm: () async {
             final provider = Provider.of<TukarShiftProvider>(
               context,
@@ -298,8 +383,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
               if (success) {
                 CustomSnackbar.showSuccess(
                   context,
-                  'Permintaan berhasil dibatalkan',
+                  'Tukar shift berhasil dibatalkan',
                 );
+                _loadData();
               } else {
                 CustomSnackbar.showError(
                   context,
@@ -323,7 +409,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             );
             final success = await provider.prosesTukarShift(
               id: request.id,
-              action: 'setujui',
+              action: 'terima',
             );
             if (mounted) {
               if (success) {
@@ -331,6 +417,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   context,
                   'Permintaan berhasil disetujui',
                 );
+                _loadData();
               } else {
                 CustomSnackbar.showError(
                   context,
@@ -501,6 +588,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                                     context,
                                     'Permintaan berhasil ditolak',
                                   );
+                                  _loadData();
                                 } else {
                                   CustomSnackbar.showError(
                                     context,
@@ -681,55 +769,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     padding,
                     titleFontSize,
                   ),
-                  Container(
-                    color: Colors.white,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenWidth * 0.03,
-                        vertical: screenHeight * 0.01,
-                      ),
-                      child: Row(
-                        children: [
-                          _buildTab(
-                            "Semua",
-                            "all",
-                            0,
-                            screenWidth,
-                            smallFontSize,
-                          ),
-                          _buildTab(
-                            "Pending",
-                            "pending",
-                            0,
-                            screenWidth,
-                            smallFontSize,
-                          ),
-                          _buildTab(
-                            "Disetujui",
-                            "disetujui",
-                            0,
-                            screenWidth,
-                            smallFontSize,
-                          ),
-                          _buildTab(
-                            "Ditolak",
-                            "ditolak",
-                            0,
-                            screenWidth,
-                            smallFontSize,
-                          ),
-                          _buildTab(
-                            "Dibatalkan",
-                            "dibatalkan",
-                            0,
-                            screenWidth,
-                            smallFontSize,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _buildTabBar(const [], screenWidth),
                   const Divider(height: 1),
                   Expanded(child: _buildShimmerLayout(screenWidth, padding)),
                 ],
@@ -747,48 +787,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     titleFontSize,
                   ),
                   Expanded(
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(padding),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: (screenWidth * 0.16).clamp(48.0, 64.0),
-                              color: AppColors.error.withValues(alpha: 0.5),
-                            ),
-                            SizedBox(height: screenHeight * 0.02),
-                            Text(
-                              provider.errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: bodyFontSize,
-                              ),
-                            ),
-                            SizedBox(height: screenHeight * 0.02),
-                            ElevatedButton(
-                              onPressed: _loadData,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: screenWidth * 0.08,
-                                  vertical: screenHeight * 0.015,
-                                ),
-                              ),
-                              child: Text(
-                                'Coba Lagi',
-                                style: TextStyle(fontSize: bodyFontSize),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: ErrorStateWidget(
+                      message: provider.errorMessage!,
+                      onRetry: _loadData,
                     ),
                   ),
                 ],
@@ -807,55 +808,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   padding,
                   titleFontSize,
                 ),
-                Container(
-                  color: Colors.white,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.03,
-                      vertical: screenHeight * 0.01,
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTab(
-                          "Semua",
-                          "all",
-                          requests.length,
-                          screenWidth,
-                          smallFontSize,
-                        ),
-                        _buildTab(
-                          "Pending",
-                          "pending",
-                          _getCountByStatus(requests, "pending"),
-                          screenWidth,
-                          smallFontSize,
-                        ),
-                        _buildTab(
-                          "Disetujui",
-                          "disetujui",
-                          _getCountByStatus(requests, "disetujui"),
-                          screenWidth,
-                          smallFontSize,
-                        ),
-                        _buildTab(
-                          "Ditolak",
-                          "ditolak",
-                          _getCountByStatus(requests, "ditolak"),
-                          screenWidth,
-                          smallFontSize,
-                        ),
-                        _buildTab(
-                          "Dibatalkan",
-                          "dibatalkan",
-                          _getCountByStatus(requests, "dibatalkan"),
-                          screenWidth,
-                          smallFontSize,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildTabBar(requests, screenWidth),
                 const Divider(height: 1),
                 if (_filterJenis != "all" || _customRange != null)
                   Container(
@@ -930,7 +883,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                         )
                       : AppRefreshIndicator(
                           onRefresh: () => provider.refreshRequests(
-                            jenis: _filterJenis,
+                            status: _currentStatus,
+                            jenis: _currentJenis,
                             startDate: _customRange?.start.toString().split(
                               ' ',
                             )[0],
@@ -1033,7 +987,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
               fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             ),
           ),
           const Spacer(),
@@ -1058,38 +1012,25 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     );
   }
 
-  Widget _buildTab(
-    String label,
-    String value,
-    int count,
-    double screenWidth,
-    double fontSize,
-  ) {
-    final selected = _filterTab == value;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
-      child: ChoiceChip(
-        label: Text('$label ($count)'),
-        selected: selected,
-        onSelected: (_) {
-          if (_filterTab != value) {
-            setState(() => _filterTab = value);
-          }
-        },
-        selectedColor: AppColors.primary,
-        backgroundColor: AppColors.greyLight,
-        labelStyle: TextStyle(
-          color: selected ? Colors.white : AppColors.textPrimary,
-          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          fontSize: fontSize,
-        ),
-      ),
+  Widget _buildTabBar(List requests, double screenWidth) {
+    return CustomFilterChipBar(
+      tabs: const ['Semua', 'Pending', 'Disetujui', 'Ditolak', 'Dibatalkan'],
+      counts: [
+        requests.length,
+        _getCountByStatus(requests, 'pending'),
+        _getCountByStatus(requests, 'disetujui'),
+        _getCountByStatus(requests, 'ditolak'),
+        _getCountByStatus(requests, 'dibatalkan'),
+      ],
+      selectedTab: _filterTab,
+      onTabSelected: (tab) => setState(() => _filterTab = tab),
     );
   }
 
   List _getFilteredList(List requests) {
-    if (_filterTab == "all") return requests;
-    return requests.where((req) => req.status == _filterTab).toList();
+    final statusValue = _currentStatus;
+    if (statusValue == null) return requests;
+    return requests.where((req) => req.status == statusValue).toList();
   }
 
   Widget _buildRequestCard(

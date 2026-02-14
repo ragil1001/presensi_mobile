@@ -151,9 +151,11 @@ class StatistikPeriode {
   final int hadir;
   final int izin;
   final int alpa;
+  final int libur;
   final int sakit;
   final int cuti;
   final int lembur;
+  final int lemburPending;
   final int terlambat;
   final int pulangCepat;
   final int tidakPresensiPulang;
@@ -163,9 +165,11 @@ class StatistikPeriode {
     required this.hadir,
     required this.izin,
     required this.alpa,
+    required this.libur,
     required this.sakit,
     required this.cuti,
     required this.lembur,
+    required this.lemburPending,
     required this.terlambat,
     required this.pulangCepat,
     required this.tidakPresensiPulang,
@@ -177,9 +181,11 @@ class StatistikPeriode {
       hadir: json['hadir'] ?? 0,
       izin: json['izin'] ?? 0,
       alpa: json['alpa'] ?? 0,
+      libur: json['libur'] ?? 0,
       sakit: json['sakit'] ?? 0,
       cuti: json['cuti'] ?? 0,
       lembur: json['lembur'] ?? 0,
+      lemburPending: json['lembur_pending'] ?? 0,
       terlambat: json['terlambat'] ?? 0,
       pulangCepat: json['pulang_cepat'] ?? 0,
       tidakPresensiPulang: json['tidak_presensi_pulang'] ?? 0,
@@ -230,6 +236,104 @@ class ProjectInfo {
       id: json['id'] ?? 0,
       nama: json['nama'] ?? '',
       tanggalMulai: json['tanggal_mulai'] ?? '',
+    );
+  }
+}
+
+class HistoryItem {
+  final String tanggal;
+  final String hari;
+  final String status;
+  final String statusDisplay;
+  final List<String> badge;
+  final String masuk;
+  final String pulang;
+  final bool isClickable;
+  final ShiftInfo? shift;
+  final PresensiDetail? presensiMasuk;
+  final PresensiDetail? presensiPulang;
+
+  HistoryItem({
+    required this.tanggal,
+    required this.hari,
+    required this.status,
+    required this.statusDisplay,
+    required this.badge,
+    required this.masuk,
+    required this.pulang,
+    required this.isClickable,
+    this.shift,
+    this.presensiMasuk,
+    this.presensiPulang,
+  });
+
+  factory HistoryItem.fromJson(Map<String, dynamic> json) {
+    return HistoryItem(
+      tanggal: json['tanggal'] ?? '',
+      hari: json['hari'] ?? '',
+      status: json['status'] ?? '',
+      statusDisplay: json['status_display'] ?? '',
+      badge:
+          (json['badge'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      masuk: json['masuk'] ?? '-',
+      pulang: json['pulang'] ?? '-',
+      isClickable: json['is_clickable'] ?? false,
+      shift: json['shift'] != null ? ShiftInfo.fromJson(json['shift']) : null,
+      presensiMasuk: json['presensi_masuk'] != null
+          ? PresensiDetail.fromJson(json['presensi_masuk'])
+          : null,
+      presensiPulang: json['presensi_pulang'] != null
+          ? PresensiDetail.fromJson(json['presensi_pulang'])
+          : null,
+    );
+  }
+}
+
+class ShiftInfo {
+  final String kode;
+  final String? waktuMulai;
+  final String? waktuSelesai;
+
+  ShiftInfo({required this.kode, this.waktuMulai, this.waktuSelesai});
+
+  factory ShiftInfo.fromJson(Map<String, dynamic> json) {
+    return ShiftInfo(
+      kode: json['kode'] ?? '',
+      waktuMulai: json['waktu_mulai'],
+      waktuSelesai: json['waktu_selesai'],
+    );
+  }
+}
+
+class PresensiDetail {
+  final String? waktu;
+  final String? foto;
+  final double? latitude;
+  final double? longitude;
+  final String? keterangan;
+
+  PresensiDetail({
+    this.waktu,
+    this.foto,
+    this.latitude,
+    this.longitude,
+    this.keterangan,
+  });
+
+  factory PresensiDetail.fromJson(Map<String, dynamic> json) {
+    return PresensiDetail(
+      waktu: json['waktu'],
+      foto: json['foto'],
+      latitude: json['latitude'] != null
+          ? double.tryParse(json['latitude'].toString())
+          : null,
+      longitude: json['longitude'] != null
+          ? double.tryParse(json['longitude'].toString())
+          : null,
+      keterangan: json['keterangan'],
     );
   }
 }

@@ -170,7 +170,7 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
                       SizedBox(height: screenHeight * 0.008),
 
                       Text(
-                        "Pastikan password baru minimal 6 karakter",
+                        "Pastikan password baru minimal 8 karakter",
                         style: TextStyle(
                           fontSize: (screenWidth * 0.034).clamp(12.0, 14.0),
                           color: Colors.black45,
@@ -321,8 +321,8 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
                                   if (value == null || value.isEmpty) {
                                     return "Masukkan password baru";
                                   }
-                                  if (value.length < 6) {
-                                    return "Password minimal 6 karakter";
+                                  if (value.length < 8) {
+                                    return "Password minimal 8 karakter";
                                   }
                                   return null;
                                 },

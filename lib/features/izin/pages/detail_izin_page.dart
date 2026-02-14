@@ -1,14 +1,20 @@
 // lib/pages/detail_izin_page.dart
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../../providers/izin_provider.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../data/models/pengajuan_izin_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 
 class DetailIzinPage extends StatefulWidget {
@@ -50,8 +56,8 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
     });
   }
 
-  Future<void> _openFile() async {
-    if (_izin?.fileUrl == null) {
+  Future<void> _downloadAndOpenFile() async {
+    if (!_izin!.hasFile) {
       CustomSnackbar.showError(context, 'File tidak tersedia');
       return;
     }
@@ -61,44 +67,53 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final token = authProvider.token;
+      debugPrint('Downloading izin file: ${_izin!.fileUrl}');
 
-      final downloadUrl = _izin!.getDownloadUrl(token) ?? _izin!.fileUrl!;
+      final response = await ApiClient().dio.get(
+        '/mobile/izin-file',
+        queryParameters: {'path': _izin!.fileUrl},
+        options: Options(responseType: ResponseType.bytes),
+      );
 
-      final uri = Uri.parse(downloadUrl);
+      debugPrint('Download response: ${response.statusCode}, bytes: ${response.data.length}');
 
-      bool launched = false;
+      final bytes = Uint8List.fromList(response.data);
+      final fileName = _izin!.fileUrl!.split('/').last;
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
 
-      try {
-        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-      } catch (e) {
-        // Silently handle
+      debugPrint('File saved to: $filePath');
+
+      final result = await OpenFilex.open(filePath);
+      if (result.type != ResultType.done && mounted) {
+        debugPrint('OpenFilex result: ${result.type} - ${result.message}');
+        CustomSnackbar.showError(
+          context,
+          'Tidak dapat membuka file: ${result.message}',
+        );
       }
-
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } catch (e) {
-          // Silently handle
-        }
-      }
-
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.inAppWebView);
-        } catch (e) {
-          // Silently handle
-        }
-      }
-
-      if (!launched) {
-        throw Exception('Tidak dapat membuka file');
-      }
-    } catch (e) {
+    } on DioException catch (e) {
+      debugPrint('DioException downloading file: ${e.type} - ${e.message}');
+      debugPrint('Response status: ${e.response?.statusCode}');
+      debugPrint('Response data: ${e.response?.data}');
       if (!mounted) return;
-
-      CustomSnackbar.showError(context, 'Gagal membuka file: ${e.toString()}');
+      CustomSnackbar.showError(
+        context,
+        'Gagal mengunduh file (${e.response?.statusCode ?? e.type})',
+      );
+    } on MissingPluginException catch (_) {
+      debugPrint('open_filex plugin not registered - need full rebuild (flutter clean && flutter run)');
+      if (!mounted) return;
+      CustomSnackbar.showError(
+        context,
+        'Plugin belum terpasang, lakukan rebuild aplikasi',
+      );
+    } catch (e) {
+      debugPrint('Error downloading file: $e');
+      if (!mounted) return;
+      CustomSnackbar.showError(context, 'Gagal mengunduh file. Silakan coba lagi.');
     } finally {
       if (mounted) {
         setState(() {
@@ -124,35 +139,9 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               child: _isLoading
                   ? _buildShimmerLayout(screenWidth, padding)
                   : _izin == null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppColors.error.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage ?? 'Data tidak ditemukan',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadDetail,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
+                  ? ErrorStateWidget(
+                      message: _errorMessage ?? 'Data tidak ditemukan',
+                      onRetry: _loadDetail,
                     )
                   : ListView(
                       padding: const EdgeInsets.all(16),
@@ -164,11 +153,12 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                         if (_izin!.keterangan != null &&
                             _izin!.keterangan!.isNotEmpty)
                           _buildKeteranganCard(),
-                        if (_izin!.fileUrl != null) ...[
+                        if (_izin!.hasFile) ...[
                           const SizedBox(height: 16),
                           _buildFileLampiran(),
                         ],
-                        if (_izin!.catatanAdmin != null) ...[
+                        if (_izin!.catatanAdmin != null &&
+                            _izin!.catatanAdmin!.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           _buildAdminResponse(),
                         ],
@@ -188,7 +178,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Status badge shimmer
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -221,8 +210,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Info card shimmer
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -266,8 +253,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Keterangan card shimmer
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -300,8 +285,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Timeline shimmer
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -529,7 +512,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               const SizedBox(height: 12),
               _buildInfoRow(
                 'Jenis Cuti Khusus',
-                _izin!.deskripsiIzin,
+                _izin!.subKategoriIzin!,
                 Icons.event_note,
               ),
             ],
@@ -554,40 +537,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               ).format(_izin!.tanggalSelesai),
               Icons.event,
             ),
-
-            if (_izin!.durasiOtomatis != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Durasi otomatis: ${_izin!.durasiOtomatis} hari kerja',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -647,15 +596,15 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.description,
                   size: 20,
                   color: AppColors.primary,
                 ),
-                const SizedBox(width: 8),
-                const Text(
+                SizedBox(width: 8),
+                Text(
                   'Keterangan',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
@@ -677,12 +626,16 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
   }
 
   Widget _buildFileLampiran() {
+    final fileName = _izin!.fileUrl!.split('/').last;
+    final ext = fileName.split('.').last.toLowerCase();
+    final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext);
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white,
       child: InkWell(
-        onTap: _isDownloading ? null : _openFile,
+        onTap: _isDownloading ? null : _downloadAndOpenFile,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -691,12 +644,14 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
+                  color: isImage
+                      ? AppColors.info.withValues(alpha: 0.1)
+                      : AppColors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.picture_as_pdf,
-                  color: AppColors.error,
+                child: Icon(
+                  isImage ? Icons.image : Icons.picture_as_pdf,
+                  color: isImage ? AppColors.info : AppColors.error,
                   size: 32,
                 ),
               ),
@@ -714,13 +669,13 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _isDownloading
-                          ? 'Membuka file...'
-                          : 'Tap untuk membuka file PDF',
+                      _isDownloading ? 'Mengunduh file...' : fileName,
                       style: TextStyle(
                         fontSize: 12,
                         color: _isDownloading ? AppColors.primary : Colors.grey,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -737,7 +692,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                   ),
                 )
               else
-                const Icon(Icons.open_in_new, color: AppColors.primary),
+                const Icon(Icons.download, color: AppColors.primary),
             ],
           ),
         ),
@@ -831,6 +786,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               Icons.send,
               AppColors.primary,
               isFirst: true,
+              isLast: _izin!.diprosesPada == null,
             ),
             if (_izin!.diprosesPada != null)
               _buildTimelineItem(

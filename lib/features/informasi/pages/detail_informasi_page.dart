@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../../providers/informasi_provider.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../data/models/informasi_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/error_state_widget.dart';
 
 class DetailInformasiPage extends StatefulWidget {
   final int informasiKaryawanId;
@@ -65,7 +65,7 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
   }
 
   Future<void> _openFile() async {
-    if (_informasi?.fileUrl == null) {
+    if (!(_informasi?.hasFile ?? false)) {
       CustomSnackbar.showError(context, 'File tidak tersedia');
       return;
     }
@@ -75,47 +75,22 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final token = authProvider.token;
+      final provider = Provider.of<InformasiProvider>(context, listen: false);
+      final localPath = await provider.downloadFile(_informasi!);
 
-      final downloadUrl =
-          _informasi!.getDownloadUrl(token) ?? _informasi!.fileUrl!;
-
-      debugPrint('🔗 Opening file URL: $downloadUrl');
-
-      final uri = Uri.parse(downloadUrl);
-      bool launched = false;
-
-      try {
-        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-      } catch (e) {
-        debugPrint('platformDefault failed: $e');
+      if (localPath == null) {
+        throw Exception('Download gagal');
       }
 
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } catch (e) {
-          debugPrint('externalApplication failed: $e');
-        }
-      }
-
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.inAppWebView);
-        } catch (e) {
-          debugPrint('inAppWebView failed: $e');
-        }
-      }
-
-      if (!launched) {
-        throw Exception('Tidak dapat membuka file');
+      final result = await OpenFilex.open(localPath);
+      if (result.type != ResultType.done) {
+        throw Exception('Tidak dapat membuka file: ${result.message}');
       }
     } catch (e) {
-      debugPrint('❌ Error opening file: $e');
+      debugPrint('Error opening file: $e');
       if (!mounted) return;
 
-      CustomSnackbar.showError(context, 'Gagal membuka file: ${e.toString()}');
+      CustomSnackbar.showError(context, 'Gagal membuka file. Silakan coba lagi.');
     } finally {
       if (mounted) {
         setState(() {
@@ -147,35 +122,9 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
                       ),
                     )
                   : _informasi == null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppColors.error.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage ?? 'Data tidak ditemukan',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadDetail,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
+                  ? ErrorStateWidget(
+                      message: _errorMessage ?? 'Data tidak ditemukan',
+                      onRetry: _loadDetail,
                     )
                   : ListView(
                       padding: const EdgeInsets.all(16),
@@ -183,7 +132,7 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
                         _buildInfoCard(),
                         const SizedBox(height: 16),
                         _buildContentCard(),
-                        if (_informasi!.fileUrl != null) ...[
+                        if (_informasi!.hasFile) ...[
                           const SizedBox(height: 16),
                           _buildFileLampiran(),
                         ],

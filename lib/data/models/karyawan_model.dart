@@ -1,127 +1,148 @@
-import 'divisi_model.dart';
 import 'jabatan_model.dart';
-import 'project_model.dart';
+
+class Penempatan {
+  final int id;
+  final String namaProject;
+
+  Penempatan({required this.id, required this.namaProject});
+
+  factory Penempatan.fromJson(Map<String, dynamic> json) {
+    return Penempatan(
+      id: json['id'] ?? 0,
+      namaProject: json['nama_project'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'nama_project': namaProject};
+  }
+}
+
+class Formasi {
+  final int id;
+  final String namaFormasi;
+
+  Formasi({required this.id, required this.namaFormasi});
+
+  factory Formasi.fromJson(Map<String, dynamic> json) {
+    return Formasi(
+      id: json['id'] ?? 0,
+      namaFormasi: json['nama_formasi'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'nama_formasi': namaFormasi};
+  }
+}
+
+class UnitKerja {
+  final int id;
+  final String namaUnit;
+
+  UnitKerja({required this.id, required this.namaUnit});
+
+  factory UnitKerja.fromJson(Map<String, dynamic> json) {
+    return UnitKerja(
+      id: json['id'] ?? 0,
+      namaUnit: json['nama_unit'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'id': id, 'nama_unit': namaUnit};
+  }
+}
 
 class Karyawan {
   final int id;
+  final int accountId;
   final String nik;
   final String nama;
   final String username;
   final String noTelepon;
   final String jenisKelamin;
-  final String tempatLahir;
-  final String tanggalLahir;
-  final String tanggalBergabung;
+  final String? tanggalLahir;
   final String status;
-  final int sisaCutiTahunan; // NEW: Sisa cuti tahunan
-  final Divisi divisi;
-  final Jabatan jabatan;
-  final Project? project;
+  final Jabatan? jabatan;
+  final Penempatan? penempatan;
+  final Formasi? formasi;
+  final UnitKerja? unitKerja;
 
   Karyawan({
     required this.id,
+    required this.accountId,
     required this.nik,
     required this.nama,
     required this.username,
     required this.noTelepon,
     required this.jenisKelamin,
-    required this.tempatLahir,
-    required this.tanggalLahir,
-    required this.tanggalBergabung,
+    this.tanggalLahir,
     required this.status,
-    required this.sisaCutiTahunan, // NEW
-    required this.divisi,
-    required this.jabatan,
-    this.project,
+    this.jabatan,
+    this.penempatan,
+    this.formasi,
+    this.unitKerja,
   });
 
   factory Karyawan.fromJson(Map<String, dynamic> json) {
-    try {
-      return Karyawan(
-        id: json['id'] ?? 0,
-        nik: json['nik'] ?? '',
-        nama: json['nama'] ?? '',
-        username: json['username'] ?? '',
-        noTelepon: json['no_telepon'] ?? '',
-        jenisKelamin: json['jenis_kelamin'] ?? '',
-        tempatLahir: json['tempat_lahir'] ?? '',
-        tanggalLahir: json['tanggal_lahir'] ?? '',
-        tanggalBergabung: json['tanggal_bergabung'] ?? '',
-        status: json['status'] ?? '',
-        sisaCutiTahunan: json['sisa_cuti_tahunan'] ?? 12, // NEW: Default 12
-        divisi: json['divisi'] != null
-            ? Divisi.fromJson(json['divisi'] as Map<String, dynamic>)
-            : Divisi(id: 0, nama: ''),
-        jabatan: json['jabatan'] != null
-            ? Jabatan.fromJson(json['jabatan'] as Map<String, dynamic>)
-            : Jabatan(id: 0, nama: ''),
-        project: json['project'] != null && json['project'] is Map
-            ? Project.fromJson(json['project'] as Map<String, dynamic>)
-            : null,
-      );
-    } catch (e) {
-      // print('Error parsing Karyawan: $e');
-      // print('JSON data: $json');
-      rethrow;
-    }
+    return Karyawan(
+      id: json['karyawan_id'] ?? json['id'] ?? 0,
+      accountId: json['id'] ?? 0,
+      nik: json['nik'] ?? '',
+      nama: json['nama'] ?? '',
+      username: json['username'] ?? '',
+      noTelepon: json['no_telepon'] ?? '',
+      jenisKelamin: json['jenis_kelamin'] ?? '',
+      tanggalLahir: json['tanggal_lahir'],
+      status: json['status'] ?? '',
+      jabatan: json['jabatan'] != null && json['jabatan'] is Map
+          ? Jabatan.fromJson(json['jabatan'] as Map<String, dynamic>)
+          : null,
+      penempatan: json['penempatan'] != null && json['penempatan'] is Map
+          ? Penempatan.fromJson(json['penempatan'] as Map<String, dynamic>)
+          : null,
+      formasi: json['formasi'] != null && json['formasi'] is Map
+          ? Formasi.fromJson(json['formasi'] as Map<String, dynamic>)
+          : null,
+      unitKerja: json['unit_kerja'] != null && json['unit_kerja'] is Map
+          ? UnitKerja.fromJson(json['unit_kerja'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': accountId,
+      'karyawan_id': id,
+      'nik': nik,
+      'nama': nama,
+      'username': username,
+      'no_telepon': noTelepon,
+      'jenis_kelamin': jenisKelamin,
+      'tanggal_lahir': tanggalLahir,
+      'status': status,
+      'jabatan': jabatan?.toJson(),
+      'penempatan': penempatan?.toJson(),
+      'formasi': formasi?.toJson(),
+      'unit_kerja': unitKerja?.toJson(),
+    };
   }
 
   String get jenisKelaminText =>
       jenisKelamin == 'L' ? 'Laki-laki' : 'Perempuan';
 
   String get formattedTanggalLahir {
+    if (tanggalLahir == null || tanggalLahir!.isEmpty) return '-';
     try {
-      final date = DateTime.parse(tanggalLahir);
+      final date = DateTime.parse(tanggalLahir!);
       final months = [
-        'Januari',
-        'Februari',
-        'Maret',
-        'April',
-        'Mei',
-        'Juni',
-        'Juli',
-        'Agustus',
-        'September',
-        'Oktober',
-        'November',
-        'Desember',
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
       ];
       return '${date.day} ${months[date.month - 1]} ${date.year}';
     } catch (e) {
-      return tanggalLahir;
+      return tanggalLahir!;
     }
-  }
-
-  String get formattedTanggalBergabung {
-    try {
-      final date = DateTime.parse(tanggalBergabung);
-      final months = [
-        'Januari',
-        'Februari',
-        'Maret',
-        'April',
-        'Mei',
-        'Juni',
-        'Juli',
-        'Agustus',
-        'September',
-        'Oktober',
-        'November',
-        'Desember',
-      ];
-      return '${date.day} ${months[date.month - 1]} ${date.year}';
-    } catch (e) {
-      return tanggalBergabung;
-    }
-  }
-
-  // NEW: Helper untuk cek apakah cuti cukup
-  bool isCutiTahunanCukup(int jumlahHari) {
-    return sisaCutiTahunan >= jumlahHari;
-  }
-
-  // NEW: Get formatted sisa cuti
-  String get formattedSisaCuti {
-    return '$sisaCutiTahunan hari';
   }
 }

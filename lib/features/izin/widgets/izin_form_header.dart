@@ -8,6 +8,7 @@ class IzinFormHeader extends StatelessWidget {
   final double padding;
   final double titleFontSize;
   final double backIconSize;
+  final bool isEditMode;
 
   const IzinFormHeader({
     super.key,
@@ -16,6 +17,7 @@ class IzinFormHeader extends StatelessWidget {
     required this.padding,
     required this.titleFontSize,
     required this.backIconSize,
+    this.isEditMode = false,
   });
 
   @override
@@ -39,7 +41,7 @@ class IzinFormHeader extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
           ),
           Text(
-            'Pengajuan Izin',
+            isEditMode ? 'Edit Pengajuan Izin' : 'Pengajuan Izin',
             style: TextStyle(
               fontSize: titleFontSize,
               fontWeight: FontWeight.bold,

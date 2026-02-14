@@ -23,6 +23,11 @@ class TukarShiftRequest {
     this.tanggalDiproses,
   });
 
+  bool get isPending => status == 'pending';
+  bool get isDisetujui => status == 'disetujui';
+  bool get canDelete => isPending && jenis == 'saya';
+  bool get canCancel => isDisetujui && jenis == 'saya';
+
   factory TukarShiftRequest.fromJson(Map<String, dynamic> json) {
     return TukarShiftRequest(
       id: _parseInt(json['id']),

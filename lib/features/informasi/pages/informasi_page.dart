@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
 import '../../../core/widgets/custom_filter_chip.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import 'detail_informasi_page.dart';
 
 class InformasiPage extends StatefulWidget {
@@ -50,12 +51,7 @@ class _InformasiPageState extends State<InformasiPage> {
         _scrollController.position.maxScrollExtent - 200) {
       final provider = context.read<InformasiProvider>();
       if (!provider.isLoading && provider.hasMore) {
-        final isRead = _filterTab == "Semua"
-            ? 'all'
-            : _filterTab == "Belum Dibaca"
-            ? 'false'
-            : 'true';
-        provider.loadMore(isRead: isRead);
+        provider.loadMore();
       }
     }
   }
@@ -65,13 +61,7 @@ class _InformasiPageState extends State<InformasiPage> {
 
     _lastRefreshTime = DateTime.now();
     final provider = context.read<InformasiProvider>();
-    final isRead = _filterTab == "Semua"
-        ? 'all'
-        : _filterTab == "Belum Dibaca"
-        ? 'false'
-        : 'true';
-
-    await provider.loadInformasiList(isRead: isRead);
+    await provider.loadInformasiList();
   }
 
   void _handleInformasiTap(informasi) async {
@@ -86,7 +76,8 @@ class _InformasiPageState extends State<InformasiPage> {
       AppPageRoute.to(DetailInformasiPage(informasiKaryawanId: informasi.id)),
     );
 
-    if (mounted && _shouldRefresh) {
+    if (mounted) {
+      _lastRefreshTime = null; // Force refresh on return from detail
       _loadData();
     }
   }
@@ -113,10 +104,9 @@ class _InformasiPageState extends State<InformasiPage> {
                   }
 
                   if (provider.state == InformasiState.error) {
-                    return _buildError(
-                      screenWidth,
-                      provider.errorMessage ?? 'Terjadi kesalahan',
-                      _loadData,
+                    return ErrorStateWidget(
+                      message: provider.errorMessage ?? 'Terjadi kesalahan',
+                      onRetry: _loadData,
                     );
                   }
 
@@ -225,8 +215,6 @@ class _InformasiPageState extends State<InformasiPage> {
           selectedTab: _filterTab,
           onTabSelected: (tab) {
             setState(() => _filterTab = tab);
-            _lastRefreshTime = null;
-            _loadData();
           },
         );
       },
@@ -427,45 +415,6 @@ class _InformasiPageState extends State<InformasiPage> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildError(double screenWidth, String message, VoidCallback onRetry) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(screenWidth * 0.06),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: screenWidth * 0.15,
-              color: AppColors.error.withValues(alpha: 0.5),
-            ),
-            SizedBox(height: screenWidth * 0.04),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: screenWidth * 0.038,
-                color: Colors.black54,
-              ),
-            ),
-            SizedBox(height: screenWidth * 0.04),
-            ElevatedButton(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Coba Lagi'),
-            ),
-          ],
-        ),
       ),
     );
   }

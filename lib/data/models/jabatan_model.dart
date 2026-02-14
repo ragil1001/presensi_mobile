@@ -5,10 +5,13 @@ class Jabatan {
   Jabatan({required this.id, required this.nama});
 
   factory Jabatan.fromJson(Map<String, dynamic> json) {
-    return Jabatan(id: json['id'], nama: json['nama']);
+    return Jabatan(
+      id: json['id'] ?? 0,
+      nama: json['nama_jabatan'] ?? json['nama'] ?? '',
+    );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'nama': nama};
+    return {'id': id, 'nama_jabatan': nama};
   }
 }

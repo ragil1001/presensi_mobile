@@ -41,9 +41,13 @@ dependencies:
 
   # Local Storage
   shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.2.4
   file_picker: ^10.3.3
+  image_picker: ^1.1.2
   url_launcher: ^6.2.2
+  open_filex: ^4.5.0
 
+  connectivity_plus: ^6.1.4
   device_info_plus: ^9.1.1
   permission_handler: ^11.2.0
   safe_device: ^1.1.5 # Detect mock location, developer mode

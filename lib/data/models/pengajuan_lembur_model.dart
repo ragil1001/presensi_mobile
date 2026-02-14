@@ -1,18 +1,15 @@
 // lib/data/models/pengajuan_lembur_model.dart
 import 'package:flutter/foundation.dart';
 
-// TODO: Replace with real base URL from backend config
-const String _baseUrl = 'http://localhost';
-
 class PengajuanLembur {
   final int id;
   final DateTime tanggal;
-  final String kodeHari; // ✅ NEW: K atau L
-  final String kodeHariText; // ✅ NEW: Hari Kerja atau Hari Libur
-  final String? jamMulai; // ✅ NEW: HH:mm (wajib jika kode_hari = L)
-  final String? jamSelesai; // ✅ NEW: HH:mm (wajib jika kode_hari = L)
-  final String? fileSklUrl;
-  final String? keteranganKaryawan; // ✅ NEW: Keterangan opsional
+  final String kodeHari;
+  final String kodeHariText;
+  final String? jamMulai;
+  final String? jamSelesai;
+  final String? fileSklUrl; // MinIO storage path (not a full URL)
+  final String? keteranganKaryawan;
   final String status;
   final String statusText;
   final String? catatanAdmin;
@@ -45,32 +42,16 @@ class PengajuanLembur {
         return value.toString();
       }
 
-      String? getFullFileUrl(dynamic fileUrlValue) {
-        final fileUrl = getStringOrNull(fileUrlValue);
-        if (fileUrl == null) return null;
-
-        if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
-          return fileUrl;
-        }
-
-        final cleanPath = fileUrl.startsWith('/')
-            ? fileUrl.substring(1)
-            : fileUrl;
-        return '${_baseUrl.replaceAll('/api', '')}/$cleanPath';
-      }
-
       return PengajuanLembur(
         id: json['id'] as int,
         tanggal: DateTime.parse(json['tanggal'] as String),
-        kodeHari: getStringOrNull(json['kode_hari']) ?? 'K', // ✅ NEW
+        kodeHari: getStringOrNull(json['kode_hari']) ?? 'K',
         kodeHariText:
-            getStringOrNull(json['kode_hari_text']) ?? 'Hari Kerja', // ✅ NEW
-        jamMulai: getStringOrNull(json['jam_mulai']), // ✅ NEW
-        jamSelesai: getStringOrNull(json['jam_selesai']), // ✅ NEW
-        fileSklUrl: getFullFileUrl(json['file_skl_url']),
-        keteranganKaryawan: getStringOrNull(
-          json['keterangan_karyawan'],
-        ), // ✅ NEW
+            getStringOrNull(json['kode_hari_text']) ?? 'Hari Kerja',
+        jamMulai: getStringOrNull(json['jam_mulai']),
+        jamSelesai: getStringOrNull(json['jam_selesai']),
+        fileSklUrl: getStringOrNull(json['file_skl_url']),
+        keteranganKaryawan: getStringOrNull(json['keterangan_karyawan']),
         status: getStringOrNull(json['status']) ?? 'pending',
         statusText: getStringOrNull(json['status_text']) ?? 'Pending',
         catatanAdmin: getStringOrNull(json['catatan_admin']),
@@ -87,26 +68,15 @@ class PengajuanLembur {
     }
   }
 
-  // Helper methods
   bool get isPending => status == 'pending';
   bool get isDisetujui => status == 'disetujui';
   bool get isDitolak => status == 'ditolak';
   bool get isDibatalkan => status == 'dibatalkan';
-  bool get canCancel => isPending;
-  bool get canDelete => isDibatalkan || isDitolak;
+  bool get canEdit => isPending;
+  bool get canDelete => isPending;
+  bool get canCancel => isDisetujui;
 
-  // ✅ NEW: Helper untuk hari libur
   bool get isHariLibur => kodeHari == 'L';
   bool get isHariKerja => kodeHari == 'K';
-
-  String? getDownloadUrl(String? token) {
-    if (fileSklUrl == null) return null;
-
-    if (fileSklUrl!.contains('/pengajuan-lembur/') &&
-        fileSklUrl!.contains('/download')) {
-      return token != null ? '$fileSklUrl?token=$token' : fileSklUrl;
-    }
-
-    return fileSklUrl;
-  }
+  bool get hasFile => fileSklUrl != null && fileSklUrl!.isNotEmpty;
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/izin_provider.dart';
@@ -11,14 +13,20 @@ import 'providers/tukar_shift_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/lembur_provider.dart';
 import 'providers/informasi_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'core/constants/app_colors.dart';
+import 'core/widgets/connectivity_banner.dart';
 import 'core/constants/app_routes.dart';
 import 'app/theme.dart';
 import 'app/router.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-/// Simplified logout handler (offline mode)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
 class LogoutHandler {
   static bool _isLoggingOut = false;
 
@@ -38,7 +46,7 @@ class LogoutHandler {
         ).pushNamedAndRemoveUntil('/login', (route) => false);
       }
 
-      authProvider.logout();
+      await authProvider.logout();
     } finally {
       _isLoggingOut = false;
     }
@@ -47,12 +55,35 @@ class LogoutHandler {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    _setupFCM();
+  }
+
+  void _setupFCM() {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint('FCM foreground message: ${message.notification?.title}');
+    });
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      debugPrint('FCM token refreshed');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +97,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LemburProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => InformasiProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
@@ -119,10 +151,13 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _animationController.forward();
-    _navigateAfterDelay();
+    _checkAuthAndNavigate();
   }
 
-  Future<void> _navigateAfterDelay() async {
+  Future<void> _checkAuthAndNavigate() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.initAuth();
+
     await Future.delayed(const Duration(milliseconds: 1200));
 
     if (!mounted) return;
@@ -131,22 +166,30 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        settings: const RouteSettings(name: AppRoutes.home),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const MainApp(),
-        transitionDuration: const Duration(milliseconds: 500),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: CurveTween(curve: Curves.easeInOut).animate(animation),
-            child: child,
-          );
-        },
-      ),
-    );
+    final isAuthenticated = authProvider.isAuthenticated;
+
+    if (isAuthenticated) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          settings: const RouteSettings(name: AppRoutes.home),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const MainApp(),
+          transitionDuration: const Duration(milliseconds: 500),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder:
+              (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity:
+                  CurveTween(curve: Curves.easeInOut).animate(animation),
+              child: child,
+            );
+          },
+        ),
+      );
+    } else {
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
+    }
   }
 
   @override
@@ -423,15 +466,22 @@ class _MainAppState extends State<MainApp>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            HomePage(isForceLoading: _isLoadingBeranda),
-            DataAbsensiPage(isForceLoading: _isLoadingRiwayat),
-          ],
-        ),
+      body: Column(
+        children: [
+          const ConnectivityBanner(),
+          Expanded(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  HomePage(isForceLoading: _isLoadingBeranda),
+                  DataAbsensiPage(isForceLoading: _isLoadingRiwayat),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,

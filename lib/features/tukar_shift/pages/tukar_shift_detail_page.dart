@@ -455,7 +455,7 @@ class TukarShiftDetailPage extends StatelessWidget {
               fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             ),
           ),
           const Spacer(),

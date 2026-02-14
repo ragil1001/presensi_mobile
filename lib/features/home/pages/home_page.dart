@@ -15,7 +15,7 @@ import '../../tukar_shift/pages/tukar_shift_page.dart';
 import 'dart:async';
 import '../../../core/constants/app_routes.dart';
 import '../widgets/home_data_card.dart';
-import '../widgets/home_error_card.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import '../widgets/home_menu_card.dart';
 import '../widgets/home_shimmer_layout.dart';
 
@@ -428,11 +428,11 @@ class _HomePageState extends State<HomePage>
                                       SizedBox(height: screenHeight * 0.022),
 
                                       if (presensiProvider.errorMessage != null)
-                                        HomeErrorCard(
-                                          screenWidth: screenWidth,
-                                          screenHeight: screenHeight,
-                                          error: presensiProvider.errorMessage!,
-                                          whiteCardKey: _whiteCardKey,
+                                        ErrorStateWidget(
+                                          key: _whiteCardKey,
+                                          compact: true,
+                                          message: presensiProvider.errorMessage!,
+                                          onRetry: _loadInitialData,
                                         )
                                       else
                                         HomeDataCard(

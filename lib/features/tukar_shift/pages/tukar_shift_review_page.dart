@@ -66,32 +66,40 @@ class _TukarShiftReviewPageState extends State<TukarShiftReviewPage> {
   Future<void> _submitRequest() async {
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
 
-    final success = await provider.submitTukarShift(
-      jadwalPemintaId: widget.shiftSaya.id,
-      jadwalTargetId: widget.shiftDiminta.jadwalId,
-      catatan: _catatanController.text.trim().isNotEmpty
-          ? _catatanController.text.trim()
-          : null,
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-      CustomSnackbar.showSuccess(
-        context,
-        'Permintaan tukar shift berhasil diajukan',
+    try {
+      final success = await provider.submitTukarShift(
+        jadwalPemintaId: widget.shiftSaya.id,
+        jadwalTargetId: widget.shiftDiminta.jadwalId,
+        catatan: _catatanController.text.trim().isNotEmpty
+            ? _catatanController.text.trim()
+            : null,
       );
-      await Future.delayed(const Duration(milliseconds: 500));
+
       if (!mounted) return;
 
-      int count = 0;
-      Navigator.popUntil(context, (route) {
-        return count++ == 3;
-      });
-    } else {
+      if (success) {
+        CustomSnackbar.showSuccess(
+          context,
+          'Permintaan tukar shift berhasil diajukan',
+        );
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+
+        int count = 0;
+        Navigator.popUntil(context, (route) {
+          return count++ == 3;
+        });
+      } else {
+        CustomSnackbar.showError(
+          context,
+          provider.errorMessage ?? 'Gagal mengajukan tukar shift',
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
       CustomSnackbar.showError(
         context,
-        provider.errorMessage ?? 'Gagal mengajukan permintaan',
+        provider.errorMessage ?? 'Gagal mengajukan tukar shift',
       );
     }
   }
@@ -404,7 +412,7 @@ class _TukarShiftReviewPageState extends State<TukarShiftReviewPage> {
               fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             ),
           ),
           const Spacer(),

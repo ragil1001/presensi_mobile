@@ -10,6 +10,7 @@ import '../../../core/constants/app_font_size.dart';
 import '../../../core/widgets/custom_bottom_sheet.dart';
 import '../../../data/models/pengajuan_izin_model.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import 'detail_izin_page.dart';
 
 class DataIzinPage extends StatefulWidget {
@@ -51,16 +52,16 @@ class _DataIzinPageState extends State<DataIzinPage> {
     if (!mounted) return;
 
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
-    await izinProvider.loadPengajuan();
+    await izinProvider.loadIzinList();
   }
 
-  List<PengajuanIzin> _getFilteredIzin(List<PengajuanIzin> disetujuiList) {
+  List<PengajuanIzin> _getFilteredIzin(List<PengajuanIzin> izinList) {
     final now = DateTime.now();
 
-    if (_filter == "Semua") return disetujuiList;
+    if (_filter == "Semua") return izinList;
 
     if (_filter == "Bulan Ini") {
-      return disetujuiList.where((izin) {
+      return izinList.where((izin) {
         return izin.tanggalMulai.month == now.month &&
             izin.tanggalMulai.year == now.year;
       }).toList();
@@ -68,14 +69,14 @@ class _DataIzinPageState extends State<DataIzinPage> {
 
     if (_filter == "Bulan Lalu") {
       final lastMonth = DateTime(now.year, now.month - 1);
-      return disetujuiList.where((izin) {
+      return izinList.where((izin) {
         return izin.tanggalMulai.month == lastMonth.month &&
             izin.tanggalMulai.year == lastMonth.year;
       }).toList();
     }
 
     if (_filter == "Custom" && _customRange != null) {
-      return disetujuiList.where((izin) {
+      return izinList.where((izin) {
         return izin.tanggalMulai.isAfter(
               _customRange!.start.subtract(const Duration(days: 1)),
             ) &&
@@ -85,7 +86,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
       }).toList();
     }
 
-    return disetujuiList;
+    return izinList;
   }
 
   Future<void> _showFilterDialog() async {
@@ -200,43 +201,17 @@ class _DataIzinPageState extends State<DataIzinPage> {
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
                   Expanded(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppColors.error.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            izinProvider.errorMessage ?? 'Terjadi kesalahan',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadData,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
+                    child: ErrorStateWidget(
+                      message: izinProvider.errorMessage ?? 'Terjadi kesalahan',
+                      onRetry: _loadData,
                     ),
                   ),
                 ],
               );
             }
 
-            final disetujuiList = izinProvider.disetujuiList;
-            final filteredList = _getFilteredIzin(disetujuiList);
+            final allIzin = izinProvider.izinList;
+            final filteredList = _getFilteredIzin(allIzin);
 
             return Column(
               children: [
@@ -298,7 +273,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Belum ada data izin yang disetujui',
+                                'Belum ada data izin',
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
                                   fontSize: 16,
@@ -380,7 +355,6 @@ class _DataIzinPageState extends State<DataIzinPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header shimmer
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -411,8 +385,6 @@ class _DataIzinPageState extends State<DataIzinPage> {
                     ],
                   ),
                 ),
-
-                // Content shimmer
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Row(
@@ -467,8 +439,6 @@ class _DataIzinPageState extends State<DataIzinPage> {
                     ],
                   ),
                 ),
-
-                // Footer shimmer
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -561,6 +531,36 @@ class _DataIzinPageState extends State<DataIzinPage> {
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return AppColors.warning;
+      case 'disetujui':
+        return AppColors.success;
+      case 'ditolak':
+        return AppColors.error;
+      case 'dibatalkan':
+        return Colors.grey;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'pending':
+        return Icons.pending;
+      case 'disetujui':
+        return Icons.check_circle;
+      case 'ditolak':
+        return Icons.cancel;
+      case 'dibatalkan':
+        return Icons.block;
+      default:
+        return Icons.help;
+    }
+  }
+
   Widget _buildIzinCard(PengajuanIzin izin) {
     Color getKategoriColor() {
       switch (izin.kategoriIzin) {
@@ -576,6 +576,9 @@ class _DataIzinPageState extends State<DataIzinPage> {
           return Colors.grey;
       }
     }
+
+    final statusColor = _getStatusColor(izin.status);
+    final statusIcon = _getStatusIcon(izin.status);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -604,7 +607,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -612,41 +615,31 @@ class _DataIzinPageState extends State<DataIzinPage> {
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: getKategoriColor().withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+                  Expanded(
                     child: Text(
                       izin.kategoriLabel,
                       style: TextStyle(
                         color: getKategoriColor(),
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.check_circle,
-                    color: AppColors.success,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  const Expanded(
-                    child: Text(
-                      'Disetujui',
-                      style: TextStyle(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
                   ),
+                  Icon(
+                    statusIcon,
+                    color: statusColor,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    izin.statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   const Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
@@ -660,34 +653,23 @@ class _DataIzinPageState extends State<DataIzinPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (izin.subKategoriIzin != null) ...[
-                    Text(
-                      izin.deskripsiIzin,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.1),
+                          color: statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
                           children: [
                             Text(
                               '${izin.durasiHari}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.success,
+                                color: statusColor,
                               ),
                             ),
                             const Text(
@@ -792,7 +774,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Disetujui: ${DateFormat('dd MMM yyyy', 'id_ID').format(izin.diprosesPada ?? izin.createdAt)}',
+                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(izin.createdAt)}',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
@@ -800,7 +782,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                       ),
                     ],
                   ),
-                  if (izin.fileUrl != null)
+                  if (izin.hasFile)
                     const Icon(
                       Icons.attach_file,
                       size: 16,

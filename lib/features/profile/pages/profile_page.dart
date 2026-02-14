@@ -216,8 +216,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                       SizedBox(height: screenHeight * 0.005),
                                       Text(
-                                        "${karyawan.jabatan.nama.isNotEmpty ? karyawan.jabatan.nama : '-'} • "
-                                        "${karyawan.divisi.nama.isNotEmpty ? karyawan.divisi.nama : '-'}",
+                                        "${karyawan.jabatan?.nama.isNotEmpty == true ? karyawan.jabatan!.nama : '-'} • "
+                                        "${karyawan.formasi?.namaFormasi.isNotEmpty == true ? karyawan.formasi!.namaFormasi : '-'}",
                                         style: TextStyle(
                                           fontSize: subtitleFontSize,
                                           color: Colors.black45,
@@ -248,9 +248,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                         isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
-                                        "Divisi",
-                                        karyawan.divisi.nama.isNotEmpty
-                                            ? karyawan.divisi.nama
+                                        "Formasi",
+                                        karyawan.formasi?.namaFormasi.isNotEmpty == true
+                                            ? karyawan.formasi!.namaFormasi
                                             : '-',
                                         screenWidth,
                                         labelFontSize,
@@ -259,16 +259,24 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                       _buildInfoItem(
                                         "Jabatan",
-                                        karyawan.jabatan.nama,
+                                        karyawan.jabatan?.nama ?? '-',
                                         screenWidth,
                                         labelFontSize,
                                         valueFontSize,
                                         isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
-                                        "Project",
-                                        karyawan.project?.nama ??
-                                            "Belum ada project",
+                                        "Penempatan",
+                                        karyawan.penempatan?.namaProject ??
+                                            "Belum ada penempatan",
+                                        screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
+                                      ),
+                                      _buildInfoItem(
+                                        "Unit Kerja",
+                                        karyawan.unitKerja?.namaUnit ?? '-',
                                         screenWidth,
                                         labelFontSize,
                                         valueFontSize,
@@ -293,14 +301,6 @@ class _ProfilePageState extends State<ProfilePage> {
                                       _buildInfoItem(
                                         "Tanggal Lahir",
                                         karyawan.formattedTanggalLahir,
-                                        screenWidth,
-                                        labelFontSize,
-                                        valueFontSize,
-                                        isVerySmallScreen,
-                                      ),
-                                      _buildInfoItem(
-                                        "Tanggal Bergabung",
-                                        karyawan.formattedTanggalBergabung,
                                         screenWidth,
                                         labelFontSize,
                                         valueFontSize,

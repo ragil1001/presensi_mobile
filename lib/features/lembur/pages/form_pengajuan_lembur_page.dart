@@ -2,15 +2,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../../../providers/lembur_provider.dart';
 import '../../../providers/jadwal_provider.dart';
+import '../../../data/models/pengajuan_lembur_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/custom_confirm_dialog.dart';
+import '../../izin/widgets/izin_file_upload_section.dart';
 
 class FormPengajuanLemburPage extends StatefulWidget {
-  const FormPengajuanLemburPage({super.key});
+  final PengajuanLembur? editData;
+
+  const FormPengajuanLemburPage({super.key, this.editData});
 
   @override
   State<FormPengajuanLemburPage> createState() =>
@@ -28,6 +32,21 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
   bool _isSubmitting = false;
   bool _isHariLibur = false;
   bool _isCheckingJadwal = false;
+
+  bool get _isEditing => widget.editData != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.editData != null) {
+      final data = widget.editData!;
+      _tanggalLembur = data.tanggal;
+      _jamMulaiController.text = data.jamMulai ?? '';
+      _jamSelesaiController.text = data.jamSelesai ?? '';
+      _keteranganController.text = data.keteranganKaryawan ?? '';
+      _isHariLibur = data.isHariLibur;
+    }
+  }
 
   @override
   void dispose() {
@@ -84,7 +103,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
 
       CustomSnackbar.showError(
         context,
-        'Gagal memeriksa jadwal: ${e.toString()}',
+        'Gagal memeriksa jadwal. Silakan coba lagi.',
       );
     }
   }
@@ -322,40 +341,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
     }
   }
 
-  Future<void> _pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-      );
-
-      if (result != null) {
-        final file = File(result.files.single.path!);
-        final fileSize = await file.length();
-
-        if (fileSize > 10 * 1024 * 1024) {
-          if (!mounted) return;
-          CustomSnackbar.showError(context, 'Ukuran file maksimal 10MB');
-          return;
-        }
-
-        setState(() {
-          _selectedFile = file;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      CustomSnackbar.showError(context, 'Gagal memilih file: ${e.toString()}');
-    }
-  }
-
-  void _removeFile() {
-    setState(() {
-      _selectedFile = null;
-    });
-  }
-
-  Future<void> _submit() async {
+  Future<void> _confirmAndSubmit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -365,7 +351,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
       return;
     }
 
-    if (_selectedFile == null) {
+    if (_selectedFile == null && !_isEditing) {
       CustomSnackbar.showWarning(context, 'File SKL wajib diupload');
       return;
     }
@@ -400,6 +386,25 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
       return;
     }
 
+    final confirmed = await CustomConfirmDialog.show(
+      context: context,
+      title: _isEditing ? 'Update Pengajuan?' : 'Ajukan Lembur?',
+      message: _isEditing
+          ? 'Apakah Anda yakin ingin memperbarui pengajuan lembur ini?'
+          : 'Apakah Anda yakin ingin mengajukan lembur pada tanggal ${DateFormat('dd MMMM yyyy', 'id_ID').format(_tanggalLembur!)}?',
+      confirmText: _isEditing ? 'Update' : 'Ajukan',
+      cancelText: 'Batal',
+      icon: Icons.send_rounded,
+      iconColor: AppColors.primary,
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    await _submit();
+  }
+
+  Future<void> _submit() async {
     setState(() {
       _isSubmitting = true;
     });
@@ -410,15 +415,33 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
         listen: false,
       );
 
-      final success = await lemburProvider.ajukanLembur(
-        tanggal: _tanggalLembur!,
-        fileSkl: _selectedFile!,
-        jamMulai: _jamMulaiController.text,
-        jamSelesai: _jamSelesaiController.text,
-        keterangan: _keteranganController.text.isNotEmpty
-            ? _keteranganController.text
-            : null,
-      );
+      final jenisLembur = _isHariLibur ? 'L' : 'K';
+      bool success;
+
+      if (_isEditing) {
+        success = await lemburProvider.updateLembur(
+          id: widget.editData!.id,
+          tanggal: _tanggalLembur!,
+          jamMulai: _jamMulaiController.text,
+          jamSelesai: _jamSelesaiController.text,
+          jenisLembur: jenisLembur,
+          fileSkl: _selectedFile,
+          keterangan: _keteranganController.text.isNotEmpty
+              ? _keteranganController.text
+              : null,
+        );
+      } else {
+        success = await lemburProvider.ajukanLembur(
+          tanggal: _tanggalLembur!,
+          jamMulai: _jamMulaiController.text,
+          jamSelesai: _jamSelesaiController.text,
+          jenisLembur: jenisLembur,
+          fileSkl: _selectedFile!,
+          keterangan: _keteranganController.text.isNotEmpty
+              ? _keteranganController.text
+              : null,
+        );
+      }
 
       if (!mounted) return;
 
@@ -429,7 +452,9 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
       if (success) {
         CustomSnackbar.showSuccess(
           context,
-          'Pengajuan lembur berhasil dikirim',
+          _isEditing
+              ? 'Pengajuan lembur berhasil diperbarui'
+              : 'Pengajuan lembur berhasil dikirim',
         );
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
@@ -437,7 +462,10 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
       } else {
         CustomSnackbar.showError(
           context,
-          lemburProvider.errorMessage ?? 'Gagal mengajukan lembur',
+          lemburProvider.errorMessage ??
+              (_isEditing
+                  ? 'Gagal memperbarui pengajuan lembur'
+                  : 'Gagal mengajukan lembur'),
         );
       }
     } catch (e) {
@@ -447,7 +475,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
         _isSubmitting = false;
       });
 
-      CustomSnackbar.showError(context, 'Terjadi kesalahan: ${e.toString()}');
+      CustomSnackbar.showError(context, 'Terjadi kesalahan. Silakan coba lagi.');
     }
   }
 
@@ -456,6 +484,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final padding = screenWidth * 0.06;
+    final errorFontSize = (screenWidth * 0.03).clamp(11.0, 12.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -480,8 +509,28 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
                     _buildJamSection(),
                     const SizedBox(height: 24),
 
-                    _buildFileSection(),
+                    _buildSectionLabel(
+                      'Upload Surat Keterangan Lembur (SKL)',
+                      isRequired: !_isEditing,
+                    ),
+                    const SizedBox(height: 8),
+                    IzinFileUploadSection(
+                      screenWidth: screenWidth,
+                      screenHeight: screenHeight,
+                      errorFontSize: errorFontSize,
+                      selectedFile: _selectedFile,
+                      isSubmitting: _isSubmitting,
+                      isDokumenWajib: !_isEditing,
+                      kategoriLabel: 'Lembur',
+                      onFileSelected: (File? file) {
+                        setState(() => _selectedFile = file);
+                      },
+                      onRemoveFile: () {
+                        setState(() => _selectedFile = null);
+                      },
+                    ),
                     const SizedBox(height: 24),
+
                     _buildKeteranganSection(),
                     const SizedBox(height: 32),
                     _buildSubmitButton(),
@@ -510,7 +559,9 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Ajukan lembur dengan melampirkan Surat Keterangan Lembur (SKL) dan mengisi jam kerja lembur',
+              _isEditing
+                  ? 'Edit pengajuan lembur Anda. File SKL baru bersifat opsional jika tidak ingin mengganti file sebelumnya.'
+                  : 'Ajukan lembur dengan melampirkan Surat Keterangan Lembur (SKL) dan mengisi jam kerja lembur',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.info,
@@ -819,131 +870,9 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
     );
   }
 
-  Widget _buildFileSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionLabel(
-          'Upload Surat Keterangan Lembur (SKL)',
-          isRequired: true,
-        ),
-        const SizedBox(height: 8),
-        if (_selectedFile == null)
-          InkWell(
-            onTap: _isSubmitting ? null : _pickFile,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.3),
-                  width: 1.5,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.grey.shade50,
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.cloud_upload_outlined,
-                    size: 44,
-                    color: AppColors.primary.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap untuk upload file SKL',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Wajib (PDF/JPG/PNG - Maksimal 10MB)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.primary),
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.primary.withValues(alpha: 0.05),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _selectedFile!.path.endsWith('.pdf')
-                      ? Icons.picture_as_pdf_outlined
-                      : Icons.image_outlined,
-                  color: _selectedFile!.path.endsWith('.pdf')
-                      ? AppColors.error
-                      : AppColors.primary,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _selectedFile!.path.split('/').last,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      FutureBuilder<int>(
-                        future: _selectedFile!.length(),
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData) {
-                            final sizeInMB = snapshot.data! / (1024 * 1024);
-                            return Text(
-                              '${sizeInMB.toStringAsFixed(2)} MB',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppColors.error),
-                  onPressed: _isSubmitting ? null : _removeFile,
-                ),
-              ],
-            ),
-          ),
-        if (_selectedFile == null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              'File SKL wajib diupload',
-              style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildSubmitButton() {
     return ElevatedButton(
-      onPressed: _isSubmitting || _isCheckingJadwal ? null : _submit,
+      onPressed: _isSubmitting || _isCheckingJadwal ? null : _confirmAndSubmit,
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -960,9 +889,9 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             )
-          : const Text(
-              'AJUKAN LEMBUR',
-              style: TextStyle(
+          : Text(
+              _isEditing ? 'SIMPAN PERUBAHAN' : 'AJUKAN LEMBUR',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
@@ -1008,7 +937,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
           ),
           const Spacer(),
           Text(
-            "Pengajuan Lembur",
+            _isEditing ? "Edit Pengajuan Lembur" : "Pengajuan Lembur",
             style: TextStyle(
               fontSize: screenWidth * 0.048,
               fontWeight: FontWeight.w600,

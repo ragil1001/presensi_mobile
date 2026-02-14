@@ -8,6 +8,7 @@ import '../../../providers/tukar_shift_provider.dart';
 import '../../../data/models/tukar_shift_model.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import 'tukar_shift_select_karyawan_page.dart';
 
 class TukarShiftRequestPage extends StatefulWidget {
@@ -269,48 +270,9 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
               child: _isLoading
                   ? _buildShimmerLayout(screenWidth, padding)
                   : _errorMessage != null
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(padding),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: (screenWidth * 0.16).clamp(48.0, 64.0),
-                              color: AppColors.error.withValues(alpha: 0.5),
-                            ),
-                            SizedBox(height: screenHeight * 0.02),
-                            Text(
-                              _errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.black54,
-                                fontSize: bodyFontSize,
-                              ),
-                            ),
-                            SizedBox(height: screenHeight * 0.02),
-                            ElevatedButton(
-                              onPressed: _loadShifts,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: screenWidth * 0.08,
-                                  vertical: screenHeight * 0.015,
-                                ),
-                              ),
-                              child: Text(
-                                'Coba Lagi',
-                                style: TextStyle(fontSize: bodyFontSize),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  ? ErrorStateWidget(
+                      message: _errorMessage ?? 'Gagal memuat jadwal shift',
+                      onRetry: _loadShifts,
                     )
                   : _shifts.isEmpty
                   ? Center(
@@ -451,7 +413,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
               fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             ),
           ),
           const Spacer(),

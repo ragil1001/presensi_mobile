@@ -1,15 +1,20 @@
 // lib/pages/detail_lembur_page.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/widgets/app_refresh_indicator.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../../providers/lembur_provider.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../data/models/pengajuan_lembur_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/error_state_widget.dart';
 
 class DetailLemburPage extends StatefulWidget {
   final int lemburId;
@@ -50,7 +55,7 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
     });
   }
 
-  Future<void> _openFile() async {
+  Future<void> _downloadAndOpenFile() async {
     if (_lembur?.fileSklUrl == null) {
       CustomSnackbar.showError(context, 'File tidak tersedia');
       return;
@@ -61,48 +66,52 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final token = authProvider.token;
+      final filePath = _lembur!.fileSklUrl!;
+      debugPrint('Downloading lembur file: $filePath');
 
-      final downloadUrl =
-          _lembur!.getDownloadUrl(token) ?? _lembur!.fileSklUrl!;
+      final response = await ApiClient().dio.get(
+        '/mobile/lembur-file',
+        queryParameters: {'path': filePath},
+        options: Options(responseType: ResponseType.bytes),
+      );
 
-      debugPrint('Opening file: $downloadUrl');
+      debugPrint('Download response: ${response.statusCode}, bytes: ${response.data.length}');
 
-      final uri = Uri.parse(downloadUrl);
+      final tempDir = await getTemporaryDirectory();
+      final ext = filePath.split('.').last;
+      final tempFile = File('${tempDir.path}/lembur_file_${DateTime.now().millisecondsSinceEpoch}.$ext');
+      await tempFile.writeAsBytes(response.data);
 
-      bool launched = false;
+      debugPrint('File saved to: ${tempFile.path}');
 
-      try {
-        launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-      } catch (e) {
-        debugPrint('platformDefault failed: $e');
+      final result = await OpenFilex.open(tempFile.path);
+      if (result.type != ResultType.done && mounted) {
+        debugPrint('OpenFilex result: ${result.type} - ${result.message}');
+        CustomSnackbar.showError(
+          context,
+          'Tidak dapat membuka file: ${result.message}',
+        );
       }
-
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } catch (e) {
-          debugPrint('externalApplication failed: $e');
-        }
-      }
-
-      if (!launched) {
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.inAppWebView);
-        } catch (e) {
-          debugPrint('inAppWebView failed: $e');
-        }
-      }
-
-      if (!launched) {
-        throw Exception('Tidak dapat membuka file');
-      }
-    } catch (e) {
-      debugPrint('Error opening file: $e');
+    } on DioException catch (e) {
+      debugPrint('DioException downloading file: ${e.type} - ${e.message}');
+      debugPrint('Response status: ${e.response?.statusCode}');
+      debugPrint('Response data: ${e.response?.data}');
       if (!mounted) return;
-
-      CustomSnackbar.showError(context, 'Gagal membuka file: ${e.toString()}');
+      CustomSnackbar.showError(
+        context,
+        'Gagal mengunduh file (${e.response?.statusCode ?? e.type})',
+      );
+    } on MissingPluginException catch (_) {
+      debugPrint('open_filex plugin not registered - need full rebuild (flutter clean && flutter run)');
+      if (!mounted) return;
+      CustomSnackbar.showError(
+        context,
+        'Plugin belum terpasang, lakukan rebuild aplikasi',
+      );
+    } catch (e) {
+      debugPrint('Error downloading file: $e');
+      if (!mounted) return;
+      CustomSnackbar.showError(context, 'Gagal mengunduh file. Silakan coba lagi.');
     } finally {
       if (mounted) {
         setState(() {
@@ -134,35 +143,9 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
                       ),
                     )
                   : _lembur == null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppColors.error.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage ?? 'Data tidak ditemukan',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadDetail,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
+                  ? ErrorStateWidget(
+                      message: _errorMessage ?? 'Data tidak ditemukan',
+                      onRetry: _loadDetail,
                     )
                   : AppRefreshIndicator(
                       onRefresh: _loadDetail,
@@ -689,7 +672,7 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white,
       child: InkWell(
-        onTap: _isDownloading ? null : _openFile,
+        onTap: _isDownloading ? null : _downloadAndOpenFile,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),

@@ -12,6 +12,7 @@ import '../../../core/widgets/custom_confirm_dialog.dart';
 import '../../../core/widgets/custom_popup_menu.dart';
 import '../../../core/widgets/custom_filter_chip.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/error_state_widget.dart';
 import 'form_pengajuan_lembur_page.dart';
 import 'detail_lembur_page.dart';
 
@@ -85,18 +86,24 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
           label: 'Detail',
           icon: Icons.info_outline,
         ),
-        if (lembur.canCancel)
+        if (lembur.canEdit)
           const CustomPopupMenuItem(
-            value: 'cancel',
-            label: 'Batalkan',
-            icon: Icons.cancel_outlined,
-            isDestructive: true,
+            value: 'edit',
+            label: 'Edit',
+            icon: Icons.edit_outlined,
           ),
         if (lembur.canDelete)
           const CustomPopupMenuItem(
             value: 'delete',
             label: 'Hapus',
             icon: Icons.delete_outline,
+            isDestructive: true,
+          ),
+        if (lembur.canCancel)
+          const CustomPopupMenuItem(
+            value: 'cancel',
+            label: 'Batalkan',
+            icon: Icons.cancel_outlined,
             isDestructive: true,
           ),
       ],
@@ -110,6 +117,15 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
         AppPageRoute.to(DetailLemburPage(lemburId: lembur.id)),
       );
       if (mounted && _shouldRefresh) {
+        _loadData();
+      }
+    } else if (result == "edit") {
+      final editResult = await Navigator.push(
+        context,
+        AppPageRoute.to(FormPengajuanLemburPage(editData: lembur)),
+      );
+      if (editResult == true && mounted) {
+        _lastRefreshTime = null;
         _loadData();
       }
     } else if (result == "cancel") {
@@ -198,38 +214,12 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
                   Expanded(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppColors.error.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            lemburProvider.errorMessage ?? 'Terjadi kesalahan',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              _lastRefreshTime = null;
-                              _loadData();
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
+                    child: ErrorStateWidget(
+                      message: lemburProvider.errorMessage ?? 'Terjadi kesalahan',
+                      onRetry: () {
+                        _lastRefreshTime = null;
+                        _loadData();
+                      },
                     ),
                   ),
                 ],
