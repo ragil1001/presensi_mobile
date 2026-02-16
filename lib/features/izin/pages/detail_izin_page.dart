@@ -16,6 +16,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/error_state_widget.dart';
 import '../../../core/widgets/shimmer_loading.dart';
+import '../../../core/widgets/app_refresh_indicator.dart';
 
 class DetailIzinPage extends StatefulWidget {
   final int izinId;
@@ -143,28 +144,31 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                       message: _errorMessage ?? 'Data tidak ditemukan',
                       onRetry: _loadDetail,
                     )
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildStatusBadge(),
-                        const SizedBox(height: 20),
-                        _buildInfoCard(),
-                        const SizedBox(height: 16),
-                        if (_izin!.keterangan != null &&
-                            _izin!.keterangan!.isNotEmpty)
-                          _buildKeteranganCard(),
-                        if (_izin!.hasFile) ...[
+                  : AppRefreshIndicator(
+                      onRefresh: _loadDetail,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildStatusBadge(),
+                          const SizedBox(height: 20),
+                          _buildInfoCard(),
                           const SizedBox(height: 16),
-                          _buildFileLampiran(),
-                        ],
-                        if (_izin!.catatanAdmin != null &&
-                            _izin!.catatanAdmin!.isNotEmpty) ...[
+                          if (_izin!.keterangan != null &&
+                              _izin!.keterangan!.isNotEmpty)
+                            _buildKeteranganCard(),
+                          if (_izin!.hasFile) ...[
+                            const SizedBox(height: 16),
+                            _buildFileLampiran(),
+                          ],
+                          if (_izin!.catatanAdmin != null &&
+                              _izin!.catatanAdmin!.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            _buildAdminResponse(),
+                          ],
                           const SizedBox(height: 16),
-                          _buildAdminResponse(),
+                          _buildTimeline(),
                         ],
-                        const SizedBox(height: 16),
-                        _buildTimeline(),
-                      ],
+                      ),
                     ),
             ),
           ],

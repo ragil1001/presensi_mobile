@@ -12,6 +12,10 @@ class ErrorInterceptor extends Interceptor {
   final FlutterSecureStorage _secureStorage;
   static bool _isHandlingLogout = false;
 
+  /// Flag untuk menandai sedang proses logout sukarela.
+  /// Selama flag ini true, semua 401 diabaikan (tidak tampilkan dialog).
+  static bool isVoluntaryLogout = false;
+
   ErrorInterceptor(this._secureStorage);
 
   @override
@@ -19,9 +23,10 @@ class ErrorInterceptor extends Interceptor {
     final appException = AppException.fromDioException(err);
 
     // 401 pada endpoint yang ter-autentikasi → force logout
-    if (err.response?.statusCode == 401) {
+    // Skip jika sedang voluntary logout (user sengaja logout)
+    if (err.response?.statusCode == 401 && !isVoluntaryLogout) {
       final path = err.requestOptions.path;
-      // Jangan force-logout untuk endpoint login (401 = salah password)
+      // Jangan force-logout untuk login (401 = salah password)
       if (!path.contains('/mobile/login')) {
         await _handleForceLogout(appException);
       }
@@ -41,6 +46,12 @@ class ErrorInterceptor extends Interceptor {
 
   Future<void> _handleForceLogout(AppException exception) async {
     if (_isHandlingLogout) return;
+
+    // Cek apakah masih ada token. Kalau sudah tidak ada (sudah logout),
+    // skip dialog — ini 401 dari request background yang terlambat.
+    final token = await _secureStorage.read(key: 'access_token');
+    if (token == null) return;
+
     _isHandlingLogout = true;
 
     try {

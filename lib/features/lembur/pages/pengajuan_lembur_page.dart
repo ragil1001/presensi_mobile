@@ -199,7 +199,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
       body: SafeArea(
         child: Consumer<LemburProvider>(
           builder: (context, lemburProvider, child) {
-            if (lemburProvider.isLoading) {
+            if (lemburProvider.isLoading && lemburProvider.lemburList.isEmpty) {
               return Column(
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
@@ -235,30 +235,42 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                 const Divider(height: 1),
                 Expanded(
                   child: filteredList.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 64,
-                                color: Colors.grey.shade300,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Belum ada pengajuan lembur',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 16,
+                      ? AppRefreshIndicator(
+                          onRefresh: () async {
+                            _lastRefreshTime = null;
+                            await _loadData();
+                          },
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.5,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox_outlined,
+                                      size: 64,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Belum ada pengajuan lembur',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextButton.icon(
+                                      onPressed: _navigateToForm,
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Ajukan Lembur'),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              TextButton.icon(
-                                onPressed: _navigateToForm,
-                                icon: const Icon(Icons.add),
-                                label: const Text('Ajukan Lembur'),
-                              ),
-                            ],
+                            ),
                           ),
                         )
                       : AppRefreshIndicator(

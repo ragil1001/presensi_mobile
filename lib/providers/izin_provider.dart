@@ -20,6 +20,7 @@ class IzinProvider with ChangeNotifier {
   final int _perPage = 20;
   bool _hasMore = false;
   bool _isLoadingMore = false;
+  String _currentStatusFilter = 'semua';
 
   // Data
   List<PengajuanIzin> _izinList = [];
@@ -72,6 +73,7 @@ class IzinProvider with ChangeNotifier {
     _state = IzinState.loading;
     _errorMessage = null;
     _errorType = null;
+    _currentStatusFilter = status;
     notifyListeners();
 
     try {
@@ -121,7 +123,7 @@ class IzinProvider with ChangeNotifier {
       final response = await _apiClient.dio.get(
         '/mobile/izin',
         queryParameters: {
-          'status': 'semua',
+          'status': _currentStatusFilter,
           'page': _currentPage + 1,
           'per_page': _perPage,
         },

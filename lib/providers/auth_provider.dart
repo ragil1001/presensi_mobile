@@ -87,17 +87,30 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
-    try {
-      await _apiClient.dio.post('/mobile/logout');
-    } catch (e) {
-      debugPrint('Logout API error: $e');
-    }
+    // Simpan token sebelum clear, untuk dikirim ke server nanti
+    final savedToken = await _apiClient.getToken();
 
+    // Hapus token lokal DULUAN supaya interceptor tahu kita sudah logout
+    // jika ada 401 dari request background yang terlambat.
     await _apiClient.clearAuth();
     _token = null;
     _currentUser = null;
     _state = AuthState.unauthenticated;
     notifyListeners();
+
+    // Beritahu server dengan token eksplisit di header (best-effort)
+    if (savedToken != null) {
+      try {
+        await _apiClient.dio.post(
+          '/mobile/logout',
+          options: Options(
+            headers: {'Authorization': 'Bearer $savedToken'},
+          ),
+        );
+      } catch (e) {
+        debugPrint('Logout API error (ignored): $e');
+      }
+    }
   }
 
   Future<void> initAuth() async {

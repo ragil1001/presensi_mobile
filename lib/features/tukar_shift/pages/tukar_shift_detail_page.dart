@@ -1,13 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
+import '../../../core/widgets/app_refresh_indicator.dart';
 import '../../../data/models/tukar_shift_model.dart';
+import '../../../providers/tukar_shift_provider.dart';
 
-class TukarShiftDetailPage extends StatelessWidget {
+class TukarShiftDetailPage extends StatefulWidget {
   final TukarShiftRequest request;
 
   const TukarShiftDetailPage({super.key, required this.request});
+
+  @override
+  State<TukarShiftDetailPage> createState() => _TukarShiftDetailPageState();
+}
+
+class _TukarShiftDetailPageState extends State<TukarShiftDetailPage> {
+  late TukarShiftRequest _request;
+
+  @override
+  void initState() {
+    super.initState();
+    _request = widget.request;
+  }
+
+  Future<void> _loadDetail() async {
+    final provider = Provider.of<TukarShiftProvider>(context, listen: false);
+    final result = await provider.getDetail(_request.id);
+    if (result != null && mounted) {
+      setState(() {
+        _request = result;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +44,13 @@ class TukarShiftDetailPage extends StatelessWidget {
     final bodyFontSize = AppFontSize.body(screenWidth);
     final smallFontSize = AppFontSize.small(screenWidth);
 
-    final status = request.status;
-    final jenis = request.jenis;
-    final shiftSaya = request.shiftSaya;
-    final shiftDiminta = request.shiftDiminta;
-    final karyawanTujuan = request.karyawanTujuan;
-    final catatan = request.catatan;
-    final alasanPenolakan = request.alasanPenolakan;
+    final status = _request.status;
+    final jenis = _request.jenis;
+    final shiftSaya = _request.shiftSaya;
+    final shiftDiminta = _request.shiftDiminta;
+    final karyawanTujuan = _request.karyawanTujuan;
+    final catatan = _request.catatan;
+    final alasanPenolakan = _request.alasanPenolakan;
 
     Color statusColor;
     String statusText;
@@ -70,9 +96,12 @@ class TukarShiftDetailPage extends StatelessWidget {
               titleFontSize,
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(padding),
-                child: Column(
+              child: AppRefreshIndicator(
+                onRefresh: _loadDetail,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.all(padding),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Status card
@@ -112,17 +141,17 @@ class TukarShiftDetailPage extends StatelessWidget {
                           ),
                           SizedBox(height: screenWidth * 0.015),
                           Text(
-                            'Diajukan: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(request.tanggalRequest)}',
+                            'Diajukan: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(_request.tanggalRequest)}',
                             style: TextStyle(
                               fontSize: smallFontSize,
                               color: Colors.grey.shade600,
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          if (request.tanggalDiproses != null) ...[
+                          if (_request.tanggalDiproses != null) ...[
                             SizedBox(height: screenWidth * 0.007),
                             Text(
-                              'Diproses: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(request.tanggalDiproses!)}',
+                              'Diproses: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(_request.tanggalDiproses!)}',
                               style: TextStyle(
                                 fontSize: smallFontSize,
                                 color: Colors.grey.shade600,
@@ -408,6 +437,7 @@ class TukarShiftDetailPage extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ],
         ),
       ),

@@ -224,11 +224,13 @@ class ProjectInfo {
   final int id;
   final String nama;
   final String tanggalMulai;
+  final int waktuToleransi;
 
   ProjectInfo({
     required this.id,
     required this.nama,
     required this.tanggalMulai,
+    this.waktuToleransi = 0,
   });
 
   factory ProjectInfo.fromJson(Map<String, dynamic> json) {
@@ -236,6 +238,7 @@ class ProjectInfo {
       id: json['id'] ?? 0,
       nama: json['nama'] ?? '',
       tanggalMulai: json['tanggal_mulai'] ?? '',
+      waktuToleransi: json['waktu_toleransi'] ?? 0,
     );
   }
 }

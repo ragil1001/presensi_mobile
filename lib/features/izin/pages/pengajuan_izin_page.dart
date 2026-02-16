@@ -209,7 +209,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       body: SafeArea(
         child: Consumer<IzinProvider>(
           builder: (context, izinProvider, child) {
-            if (izinProvider.isLoading) {
+            if (izinProvider.isLoading && izinProvider.izinList.isEmpty) {
               return Column(
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
@@ -251,44 +251,56 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                 const Divider(height: 1),
                 Expanded(
                   child: filteredList.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: isVerySmallScreen ? 48 : 64,
-                                color: Colors.grey.shade300,
-                              ),
-                              SizedBox(height: isVerySmallScreen ? 12 : 16),
-                              Text(
-                                'Belum ada pengajuan izin',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: (screenWidth * 0.04).clamp(
-                                    14.0,
-                                    16.0,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: isVerySmallScreen ? 6 : 8),
-                              TextButton.icon(
-                                onPressed: _navigateToForm,
-                                icon: Icon(
-                                  Icons.add,
-                                  size: (screenWidth * 0.045).clamp(16.0, 20.0),
-                                ),
-                                label: Text(
-                                  'Ajukan Izin',
-                                  style: TextStyle(
-                                    fontSize: (screenWidth * 0.035).clamp(
-                                      13.0,
-                                      15.0,
+                      ? AppRefreshIndicator(
+                          onRefresh: () async {
+                            _lastRefreshTime = null;
+                            await _loadData();
+                          },
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.5,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox_outlined,
+                                      size: isVerySmallScreen ? 48 : 64,
+                                      color: Colors.grey.shade300,
                                     ),
-                                  ),
+                                    SizedBox(height: isVerySmallScreen ? 12 : 16),
+                                    Text(
+                                      'Belum ada pengajuan izin',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: (screenWidth * 0.04).clamp(
+                                          14.0,
+                                          16.0,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: isVerySmallScreen ? 6 : 8),
+                                    TextButton.icon(
+                                      onPressed: _navigateToForm,
+                                      icon: Icon(
+                                        Icons.add,
+                                        size: (screenWidth * 0.045).clamp(16.0, 20.0),
+                                      ),
+                                      label: Text(
+                                        'Ajukan Izin',
+                                        style: TextStyle(
+                                          fontSize: (screenWidth * 0.035).clamp(
+                                            13.0,
+                                            15.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         )
                       : AppRefreshIndicator(

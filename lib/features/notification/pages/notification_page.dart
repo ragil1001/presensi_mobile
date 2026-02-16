@@ -219,7 +219,16 @@ class _NotificationPageState extends State<NotificationPage> {
                   }
 
                   if (provider.notifications.isEmpty) {
-                    return _buildEmpty(screenWidth);
+                    return AppRefreshIndicator(
+                      onRefresh: _loadNotifications,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          child: _buildEmpty(screenWidth),
+                        ),
+                      ),
+                    );
                   }
 
                   return AppRefreshIndicator(

@@ -9,6 +9,7 @@ import '../../../data/models/tukar_shift_model.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/error_state_widget.dart';
+import '../../../core/widgets/app_refresh_indicator.dart';
 import 'tukar_shift_review_page.dart';
 
 class TukarShiftSelectKaryawanPage extends StatefulWidget {
@@ -34,11 +35,11 @@ class _TukarShiftSelectKaryawanPageState
     super.dispose();
   }
 
-  void _loadKaryawan() {
+  Future<void> _loadKaryawan() async {
     if (_selectedDate == null) return;
 
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
-    provider.loadKaryawanWithShift(
+    await provider.loadKaryawanWithShift(
       tanggal: _selectedDate!.toString().split(' ')[0],
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
     );
@@ -442,20 +443,23 @@ class _TukarShiftSelectKaryawanPageState
                     );
                   }
 
-                  return ListView.builder(
-                    padding: EdgeInsets.symmetric(horizontal: padding),
-                    itemCount: karyawanList.length,
-                    itemBuilder: (context, index) {
-                      final karyawan = karyawanList[index];
-                      final isSelected = _selectedKaryawan?.id == karyawan.id;
-                      return _buildKaryawanCard(
-                        karyawan,
-                        isSelected,
-                        screenWidth,
-                        bodyFontSize,
-                        smallFontSize,
-                      );
-                    },
+                  return AppRefreshIndicator(
+                    onRefresh: _loadKaryawan,
+                    child: ListView.builder(
+                      padding: EdgeInsets.symmetric(horizontal: padding),
+                      itemCount: karyawanList.length,
+                      itemBuilder: (context, index) {
+                        final karyawan = karyawanList[index];
+                        final isSelected = _selectedKaryawan?.id == karyawan.id;
+                        return _buildKaryawanCard(
+                          karyawan,
+                          isSelected,
+                          screenWidth,
+                          bodyFontSize,
+                          smallFontSize,
+                        );
+                      },
+                    ),
                   );
                 },
               ),

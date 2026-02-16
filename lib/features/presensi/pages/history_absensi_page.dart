@@ -46,7 +46,7 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
     }
   }
 
-  void _loadData() {
+  Future<void> _loadData() async {
     final provider = Provider.of<PresensiProvider>(context, listen: false);
     final filterApi = _mapFilterToApi(_filter);
     String? startDate;
@@ -55,7 +55,7 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
       startDate = _customRange!.start.toIso8601String().substring(0, 10);
       endDate = _customRange!.end.toIso8601String().substring(0, 10);
     }
-    provider.loadHistoryPresensi(
+    await provider.loadHistoryPresensi(
       filter: filterApi,
       startDate: startDate,
       endDate: endDate,
@@ -255,32 +255,41 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                   }
 
                   if (provider.historyItems.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.event_busy,
-                            size: (screenWidth * 0.15).clamp(48.0, 72.0),
-                            color: Colors.grey.shade400,
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
-                          Text(
-                            "Tidak ada data presensi",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: bodyFontSize,
+                    return AppRefreshIndicator(
+                      onRefresh: () async => _loadData(),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: screenHeight * 0.5,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.event_busy,
+                                  size: (screenWidth * 0.15).clamp(48.0, 72.0),
+                                  color: Colors.grey.shade400,
+                                ),
+                                SizedBox(height: screenHeight * 0.02),
+                                Text(
+                                  "Tidak ada data presensi",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: bodyFontSize,
+                                  ),
+                                ),
+                                SizedBox(height: screenHeight * 0.01),
+                                Text(
+                                  "Pada periode yang dipilih",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontSize: smallFontSize,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SizedBox(height: screenHeight * 0.01),
-                          Text(
-                            "Pada periode yang dipilih",
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: smallFontSize,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   }

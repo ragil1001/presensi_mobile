@@ -6,6 +6,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/custom_confirm_dialog.dart';
+import '../../../core/widgets/app_refresh_indicator.dart';
 import '../../auth/pages/ganti_password_page.dart';
 import '../../../main.dart'; // Import untuk LogoutHandler
 
@@ -31,8 +32,8 @@ class _ProfilePageState extends State<ProfilePage> {
     return DateTime.now().difference(_lastRefreshTime!).inSeconds > 30;
   }
 
-  Future<void> _loadData() async {
-    if (!_shouldRefresh) {
+  Future<void> _loadData({bool force = false}) async {
+    if (!force && !_shouldRefresh) {
       setState(() => _isLoading = false);
       return;
     }
@@ -148,8 +149,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
 
                       Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
+                        child: AppRefreshIndicator(
+                          onRefresh: () => _loadData(force: true),
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Column(
                             children: [
                               SizedBox(
                                 height: isVerySmallScreen
@@ -375,6 +379,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     : screenHeight * 0.04,
                               ),
                             ],
+                            ),
                           ),
                         ),
                       ),

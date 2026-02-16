@@ -157,7 +157,7 @@ class HomeDataCard extends StatelessWidget {
                         height:
                             screenHeight * (isVerySmallScreen ? 0.014 : 0.019),
                       ),
-                      if (jadwal != null && presensi != null)
+                      if (jadwal != null && presensi != null && !_shouldHideAttendance(jadwal, presensi))
                         _buildAttendanceRow(
                           jadwal,
                           presensi,
@@ -179,7 +179,7 @@ class HomeDataCard extends StatelessWidget {
     PresensiHariIni? presensi,
     bool isVerySmallScreen,
   ) {
-    if (jadwal != null && jadwal.isLibur && presensi == null) {
+    if (jadwal != null && jadwal.isLibur && _hasNoPresensiTimes(presensi)) {
       return Container(
         padding: EdgeInsets.symmetric(
           horizontal: screenWidth * 0.04,
@@ -216,7 +216,7 @@ class HomeDataCard extends StatelessWidget {
       );
     }
 
-    if (jadwal != null && jadwal.isLibur && presensi != null) {
+    if (jadwal != null && jadwal.isLibur && !_hasNoPresensiTimes(presensi)) {
       return Container(
         padding: EdgeInsets.all(
           screenWidth * (isVerySmallScreen ? 0.026 : 0.032),
@@ -362,6 +362,22 @@ class HomeDataCard extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Check if presensi has no actual recorded times
+  bool _hasNoPresensiTimes(PresensiHariIni? presensi) {
+    if (presensi == null) return true;
+    final masukEmpty = presensi.waktuMasuk == null || presensi.waktuMasuk!.isEmpty || presensi.waktuMasuk == '-';
+    final pulangEmpty = presensi.waktuPulang == null || presensi.waktuPulang!.isEmpty || presensi.waktuPulang == '-';
+    return masukEmpty && pulangEmpty;
+  }
+
+  /// Hide attendance row for holiday with no presensi recorded
+  bool _shouldHideAttendance(JadwalHariIni jadwal, PresensiHariIni presensi) {
+    if (jadwal.isLibur && _hasNoPresensiTimes(presensi)) {
+      return true;
+    }
+    return false;
   }
 
   Widget _buildTimeCard({

@@ -4,6 +4,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:provider/provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/custom_confirm_dialog.dart';
+import '../../../providers/presensi_provider.dart';
 
 class CustomBottomNavBar extends StatefulWidget {
   final int currentIndex;
@@ -39,7 +43,66 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
   }
 
   void _handlePresensiTap() {
+    final provider = Provider.of<PresensiProvider>(context, listen: false);
+    final data = provider.presensiData;
+
+    // Check 1: Ada jadwal hari ini?
+    if (data?.jadwalHariIni == null) {
+      _showWarningDialog(
+        'Tidak Ada Jadwal',
+        'Anda tidak memiliki jadwal hari ini.',
+      );
+      return;
+    }
+
+    final jadwal = data!.jadwalHariIni!;
+
+    // Check 2: Libur → langsung masuk tanpa cek waktu
+    if (jadwal.isLibur) {
+      Navigator.pushNamed(context, '/absensi');
+      return;
+    }
+
+    // Check 3: Cek waktu toleransi
+    if (jadwal.waktuMulai != null && data.projectInfo != null) {
+      final now = TimeOfDay.now();
+      final shiftParts = jadwal.waktuMulai!.split(':');
+      if (shiftParts.length >= 2) {
+        final shiftHour = int.tryParse(shiftParts[0]) ?? 0;
+        final shiftMinute = int.tryParse(shiftParts[1]) ?? 0;
+        final toleransi = data.projectInfo!.waktuToleransi;
+
+        // Hitung waktu mulai presensi
+        final totalMinutes = shiftHour * 60 + shiftMinute - toleransi;
+        final startHour = totalMinutes ~/ 60;
+        final startMinute = totalMinutes % 60;
+        final nowMinutes = now.hour * 60 + now.minute;
+
+        if (nowMinutes < totalMinutes) {
+          final startTime =
+              '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+          _showWarningDialog(
+            'Belum Waktunya Presensi',
+            'Presensi dapat dimulai pukul $startTime.\nShift dimulai pukul ${jadwal.waktuMulai}.',
+          );
+          return;
+        }
+      }
+    }
+
     Navigator.pushNamed(context, '/absensi');
+  }
+
+  void _showWarningDialog(String title, String message) {
+    CustomConfirmDialog.show(
+      context: context,
+      title: title,
+      message: message,
+      confirmText: 'OK',
+      icon: Icons.info_outline,
+      iconColor: AppColors.warning,
+      showCancel: false,
+    );
   }
 
   @override

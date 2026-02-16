@@ -69,9 +69,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     }
   }
 
-  void _loadData() {
+  Future<void> _loadData() async {
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
-    provider.loadTukarShiftRequests(
+    await provider.loadTukarShiftRequests(
       status: _currentStatus,
       jenis: _currentJenis,
       startDate: _customRange?.start.toString().split(' ')[0],
@@ -759,7 +759,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
       body: SafeArea(
         child: Consumer<TukarShiftProvider>(
           builder: (context, provider, child) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.requests.isEmpty) {
               return Column(
                 children: [
                   _buildHeader(
@@ -861,24 +861,33 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   ),
                 Expanded(
                   child: filteredRequests.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.swap_horiz,
-                                size: (screenWidth * 0.16).clamp(48.0, 64.0),
-                                color: AppColors.divider,
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                              Text(
-                                'Belum ada permintaan tukar shift',
-                                style: TextStyle(
-                                  color: AppColors.textHint,
-                                  fontSize: bodyFontSize,
+                      ? AppRefreshIndicator(
+                          onRefresh: _loadData,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: screenHeight * 0.5,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.swap_horiz,
+                                      size: (screenWidth * 0.16).clamp(48.0, 64.0),
+                                      color: AppColors.divider,
+                                    ),
+                                    SizedBox(height: screenHeight * 0.02),
+                                    Text(
+                                      'Belum ada permintaan tukar shift',
+                                      style: TextStyle(
+                                        color: AppColors.textHint,
+                                        fontSize: bodyFontSize,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         )
                       : AppRefreshIndicator(

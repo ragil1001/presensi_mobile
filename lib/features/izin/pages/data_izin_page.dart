@@ -52,7 +52,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
     if (!mounted) return;
 
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
-    await izinProvider.loadIzinList();
+    await izinProvider.loadIzinList(status: 'disetujui');
   }
 
   List<PengajuanIzin> _getFilteredIzin(List<PengajuanIzin> izinList) {
@@ -187,7 +187,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
       body: SafeArea(
         child: Consumer<IzinProvider>(
           builder: (context, izinProvider, child) {
-            if (izinProvider.isLoading) {
+            if (izinProvider.isLoading && izinProvider.izinList.isEmpty) {
               return Column(
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
@@ -262,37 +262,46 @@ class _DataIzinPageState extends State<DataIzinPage> {
                   ),
                 Expanded(
                   child: filteredList.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 64,
-                                color: Colors.grey.shade300,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Belum ada data izin',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 16,
+                      ? AppRefreshIndicator(
+                          onRefresh: _loadData,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.5,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox_outlined,
+                                      size: 64,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Belum ada data izin',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    if (_filter != "Semua") ...[
+                                      const SizedBox(height: 8),
+                                      TextButton.icon(
+                                        onPressed: () {
+                                          setState(() {
+                                            _filter = "Semua";
+                                            _customRange = null;
+                                          });
+                                        },
+                                        icon: const Icon(Icons.clear),
+                                        label: const Text('Hapus Filter'),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              if (_filter != "Semua") ...[
-                                const SizedBox(height: 8),
-                                TextButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      _filter = "Semua";
-                                      _customRange = null;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.clear),
-                                  label: const Text('Hapus Filter'),
-                                ),
-                              ],
-                            ],
+                            ),
                           ),
                         )
                       : AppRefreshIndicator(

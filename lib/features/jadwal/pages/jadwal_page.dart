@@ -6,6 +6,7 @@ import '../../../providers/jadwal_provider.dart';
 import '../../../providers/presensi_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
+import '../../../core/widgets/custom_confirm_dialog.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/error_state_widget.dart';
 
@@ -190,123 +191,14 @@ class _JadwalPageState extends State<JadwalPage> {
   void _showTukarShiftInfo(jadwal) {
     if (!jadwal.isDitukar || jadwal.tukarShiftInfo == null) return;
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isVerySmallScreen = screenWidth < 340;
-
-    showDialog(
+    CustomConfirmDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isVerySmallScreen ? 6 : 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.swap_horiz,
-                  color: AppColors.primary,
-                  size: isVerySmallScreen ? 20 : 24,
-                ),
-              ),
-              SizedBox(width: isVerySmallScreen ? 8 : 12),
-              Flexible(
-                child: Text(
-                  'Shift Ditukar',
-                  style: TextStyle(fontSize: isVerySmallScreen ? 16 : 18),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Shift ini telah ditukar dengan:',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: isVerySmallScreen ? 12 : 14,
-                ),
-              ),
-              SizedBox(height: isVerySmallScreen ? 8 : 12),
-              Container(
-                padding: EdgeInsets.all(isVerySmallScreen ? 10 : 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.1),
-                      AppColors.primary.withValues(alpha: 0.05),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: isVerySmallScreen ? 38 : 44,
-                      height: isVerySmallScreen ? 38 : 44,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primary.withValues(alpha: 0.3),
-                            AppColors.primary.withValues(alpha: 0.2),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        color: AppColors.primary,
-                        size: isVerySmallScreen ? 22 : 26,
-                      ),
-                    ),
-                    SizedBox(width: isVerySmallScreen ? 8 : 12),
-                    Expanded(
-                      child: Text(
-                        jadwal.tukarShiftInfo!.dengan,
-                        style: TextStyle(
-                          fontSize: isVerySmallScreen ? 14 : 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isVerySmallScreen ? 16 : 20,
-                  vertical: isVerySmallScreen ? 10 : 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                'Tutup',
-                style: TextStyle(fontSize: isVerySmallScreen ? 13 : 15),
-              ),
-            ),
-          ],
-        );
-      },
+      title: 'Shift Ditukar',
+      message: 'Shift ini telah ditukar dengan:\n${jadwal.tukarShiftInfo!.dengan}',
+      confirmText: 'Tutup',
+      icon: Icons.swap_horiz,
+      iconColor: AppColors.primary,
+      showCancel: false,
     );
   }
 
@@ -343,7 +235,7 @@ class _JadwalPageState extends State<JadwalPage> {
             Expanded(
               child: Consumer<JadwalProvider>(
                 builder: (context, provider, child) {
-                  if (provider.isLoading) {
+                  if (provider.isLoading && (provider.jadwalBulan?.jadwals ?? []).isEmpty) {
                     return _buildShimmerLayout(screenWidth, padding);
                   }
 
@@ -360,7 +252,19 @@ class _JadwalPageState extends State<JadwalPage> {
                   final jadwals = provider.jadwalBulan?.jadwals ?? [];
 
                   if (jadwals.isEmpty) {
-                    return _buildEmptyState(screenWidth);
+                    return AppRefreshIndicator(
+                      onRefresh: () async {
+                        _lastRefreshTime = null;
+                        await provider.refreshJadwalBulan(_selectedBulan!);
+                      },
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          child: _buildEmptyState(screenWidth),
+                        ),
+                      ),
+                    );
                   }
 
                   return AppRefreshIndicator(

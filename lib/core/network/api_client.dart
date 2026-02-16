@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../constants/api_config.dart';
+import '../services/gps_security/device_integrity_checker.dart';
+import '../services/gps_security/models.dart';
 import 'error_interceptor.dart';
 
 class ApiClient {
@@ -69,6 +71,11 @@ class ApiClient {
     }
 
     return _deviceId;
+  }
+
+  /// Collect a full [DeviceFingerprint] for security payloads.
+  Future<DeviceFingerprint> getDeviceFingerprint() async {
+    return DeviceIntegrityChecker.collectFingerprint();
   }
 
   /// Get device name for display

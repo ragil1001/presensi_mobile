@@ -1,16 +1,21 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http_parser/http_parser.dart';
 import '../core/error/app_exception.dart';
 import '../core/network/api_client.dart';
+import '../core/services/gps_security/models.dart';
 import '../data/models/presensi_model.dart';
 
 class PresensiProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingStatistik = false;
   bool _isLoadingHistory = false;
+  bool _isSubmitting = false;
   String? _errorMessage;
   String? _errorMessageStatistik;
   String? _errorMessageHistory;
+  String? _submitError;
 
   PresensiData? _presensiData;
   StatistikPeriode? _statistikPeriode;
@@ -32,9 +37,11 @@ class PresensiProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingStatistik => _isLoadingStatistik;
   bool get isLoadingHistory => _isLoadingHistory;
+  bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
   String? get errorMessageStatistik => _errorMessageStatistik;
   String? get errorMessageHistory => _errorMessageHistory;
+  String? get submitError => _submitError;
 
   // History getters
   List<HistoryItem> get historyItems => _historyItems;
@@ -224,6 +231,85 @@ class PresensiProvider with ChangeNotifier {
   Future<void> loadMoreHistory() async {
     if (!_historyHasMore || _isLoadingHistory) return;
     await loadHistoryPresensi(filter: _historyFilter);
+  }
+
+  // ── Cek Presensi ──
+
+  Future<Map<String, dynamic>?> cekPresensi() async {
+    try {
+      final response = await _apiClient.dio.get('/mobile/cek-presensi');
+
+      if (response.statusCode == 200 && response.data != null) {
+        return Map<String, dynamic>.from(response.data['data']);
+      }
+      return null;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException
+          ? e.error as AppException
+          : AppException.fromDioException(e);
+      throw appEx;
+    }
+  }
+
+  // ── Submit Presensi ──
+
+  Future<Map<String, dynamic>?> submitPresensi({
+    required String jenis,
+    required int jadwalId,
+    required double latitude,
+    required double longitude,
+    required File foto,
+    SecurityPayload? securityPayload,
+  }) async {
+    if (_isSubmitting) return null;
+
+    _isSubmitting = true;
+    _submitError = null;
+    notifyListeners();
+
+    try {
+      final fileName = 'presensi_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final formData = FormData.fromMap({
+        'jenis': jenis,
+        'jadwal_id': jadwalId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'foto': await MultipartFile.fromFile(
+          foto.path,
+          filename: fileName,
+          contentType: MediaType('image', 'jpeg'),
+        ),
+        if (securityPayload != null) ...securityPayload.toFormFields(),
+      });
+
+      final response = await _apiClient.dio.post(
+        '/mobile/submit-presensi',
+        data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      if (response.statusCode == 201 && response.data != null) {
+        _submitError = null;
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      return null;
+    } on DioException catch (e) {
+      final appEx = e.error is AppException
+          ? e.error as AppException
+          : AppException.fromDioException(e);
+      _submitError = appEx.userMessage;
+      throw appEx;
+    } catch (e) {
+      debugPrint('Error submitting presensi: $e');
+      _submitError = 'Gagal menyimpan presensi.';
+      rethrow;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
   }
 
   void clearError() {

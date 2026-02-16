@@ -1,5 +1,5 @@
-// File: lib/pages/absensi_page.dart
-// FIXED: Validasi radius tetap ditampilkan di hari libur (kecuali jabatan excluded)
+// File: lib/features/presensi/pages/absensi_page.dart
+// Refactored: delegates all GPS security to SecurityManager (15-layer system)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -9,9 +9,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
-// Backend services removed (offline mode)
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/services/gps_security/security_manager.dart';
+import '../../../core/services/gps_security/models.dart';
+import '../../../providers/presensi_provider.dart';
 import 'selfie_page.dart';
 
 class AbsensiPage extends StatefulWidget {
@@ -23,28 +26,24 @@ class AbsensiPage extends StatefulWidget {
 
 class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   final MapController _mapController = MapController();
-  // FakeGpsDetector removed (offline mode)
   StreamSubscription<Position>? _positionStreamSubscription;
 
   LatLng? _currentLatLng;
   Position? _currentPosition;
   bool _isDisposed = false;
   bool _isLoadingPresensi = true;
-  bool _isValidatingLocation = false;
 
-  // Fake GPS Detection State
-  bool _isFakeGpsDetected = false;
-  String? _fakeGpsMessage;
-  List<String> _detectionTypes = [];
+  // Security — all detection delegated to SecurityManager
+  late final SecurityManager _securityManager;
+  SecurityState _securityState = SecurityState.initial();
+  bool _securityConfigured = false;
 
-  // Jabatan excluded state
+  // Jabatan excluded state (business logic, not security)
   bool _isJabatanExcluded = false;
 
   // Data presensi dari API
   Map<String, dynamic>? _presensiData;
   String? _errorMessage;
-  bool _dalamRadius = false;
-  double? _jarakKeProject;
 
   // Track validation progress
   String _validationStatus = 'Memuat...';
@@ -56,6 +55,14 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Intl.defaultLocale = 'id_ID';
+
+    _securityManager = SecurityManager(
+      onStateChanged: (state) {
+        if (mounted && !_isDisposed) {
+          setState(() => _securityState = state);
+        }
+      },
+    );
 
     Future.microtask(() {
       if (mounted && !_isDisposed) {
@@ -73,8 +80,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         break;
       case AppLifecycleState.resumed:
         _positionStreamSubscription?.resume();
-        if (_currentPosition != null) {
-          _detectFakeGps(_currentPosition!);
+        // Re-run security checks on resume (e.g. user may have enabled
+        // developer mode while app was paused).
+        if (_currentPosition != null && _securityConfigured) {
+          _securityManager.processPosition(_currentPosition!);
         }
         break;
       default:
@@ -87,6 +96,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _positionStreamSubscription?.cancel();
+    _securityManager.reset();
     super.dispose();
   }
 
@@ -97,7 +107,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     await _cekPresensi();
   }
 
-  /// Offline mode: return dummy presensi data
+  /// Call backend cek-presensi API
   Future<void> _cekPresensi() async {
     if (_isDisposed || !mounted) return;
 
@@ -106,42 +116,92 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final provider = Provider.of<PresensiProvider>(context, listen: false);
+      final data = await provider.cekPresensi();
 
-    if (!mounted || _isDisposed) return;
+      if (!mounted || _isDisposed) return;
+
+      setState(() {
+        _presensiData = data;
+        _isJabatanExcluded =
+            data?['karyawan']?['is_jabatan_excluded'] ?? false;
+        _isLoadingPresensi = false;
+      });
+
+      // Configure SecurityManager with project coordinates
+      _configureSecurityManager();
+
+      // If GPS already available, run first evaluation
+      if (_hasGpsPosition && _currentPosition != null) {
+        await _runSecurityCheck();
+      }
+    } catch (e) {
+      if (!mounted || _isDisposed) return;
+
+      setState(() {
+        _errorMessage = e.toString().contains('jadwal')
+            ? e.toString().replaceAll('Exception: ', '')
+            : 'Gagal memuat data presensi. Silakan coba lagi.';
+        _isLoadingPresensi = false;
+      });
+    }
+  }
+
+  void _configureSecurityManager() {
+    final projectLokasi = _presensiData?['project']?['lokasi'];
+    final projectRadius =
+        (_presensiData?['project']?['radius'] ?? 0).toDouble();
+
+    if (projectLokasi != null) {
+      final projectLat = (projectLokasi['latitude'] as num).toDouble();
+      final projectLng = (projectLokasi['longitude'] as num).toDouble();
+
+      _securityManager.configure(
+        projectLat: projectLat,
+        projectLng: projectLng,
+        projectRadius: projectRadius,
+      );
+      _securityConfigured = true;
+    }
+  }
+
+  /// Run security evaluation via SecurityManager.
+  Future<void> _runSecurityCheck() async {
+    if (_currentPosition == null || !_securityConfigured) return;
 
     setState(() {
-      _presensiData = {
-        'bisa_presensi_masuk': true,
-        'bisa_presensi_pulang': false,
-        'sudah_presensi_masuk': false,
-        'sudah_presensi_pulang': false,
-        'is_hari_libur': false,
-        'jadwal_id': 1,
-        'shift': {
-          'kode': 'P',
-          'waktu_mulai': '08:00',
-          'waktu_selesai': '17:00',
-        },
-        'project': {
-          'nama': 'Demo Project',
-          'radius': 500,
-          'lokasi': {
-            'latitude': -6.9667,
-            'longitude': 110.4167,
-            'nama': 'Demo Location',
-          },
-        },
-        'karyawan': {'nama': 'Demo User', 'is_jabatan_excluded': false},
-        'waktu_info': {'pesan': 'Presensi tersedia'},
-      };
-      _isJabatanExcluded = false;
-      _isLoadingPresensi = false;
-
-      if (_hasGpsPosition && _currentLatLng != null) {
-        _runValidations();
-      }
+      _validationStatus = 'Memeriksa keamanan...';
     });
+
+    try {
+      await _securityManager.processPosition(_currentPosition!);
+
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isInitialCheckComplete = true;
+
+          if (_securityState.action == SecurityAction.block) {
+            _validationStatus = 'Fake GPS Detected';
+          } else if (_isJabatanExcluded) {
+            _validationStatus = 'Ready';
+          } else if (_securityState.isInRadius) {
+            _validationStatus = 'Ready';
+          } else {
+            _validationStatus = 'Out of Range';
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Security check error: $e');
+
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isInitialCheckComplete = true;
+          _validationStatus = 'Ready';
+        });
+      }
+    }
   }
 
   Future<void> _determinePositionAndListen() async {
@@ -246,93 +306,31 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       _mapController.move(_currentLatLng!, 16.0);
     }
 
-    if (_presensiData != null && isFirstGps) {
-      await _runValidations();
-    }
-  }
+    // Feed every position into SecurityManager for continuous monitoring
+    if (_securityConfigured) {
+      await _securityManager.processPosition(pos);
 
-  Future<void> _runValidations() async {
-    if (_currentPosition == null || _currentLatLng == null) return;
-    if (_isInitialCheckComplete) return;
+      // First evaluation after both GPS and config are ready
+      if (isFirstGps && !_isInitialCheckComplete) {
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _isInitialCheckComplete = true;
 
-    setState(() {
-      _validationStatus = 'Memeriksa keamanan...';
-    });
-
-    try {
-      await Future.wait([
-        _detectFakeGps(_currentPosition!),
-        _validasiLokasi(),
-      ], eagerError: false).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          debugPrint('⚡ Validation timeout - using defaults');
-          return <Future<void>>[];
-        },
-      );
-
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _isInitialCheckComplete = true;
-
-          // ✅ FIXED: Set final status - TIDAK bypass radius check untuk hari libur
-          if (_isFakeGpsDetected) {
-            _validationStatus = 'Fake GPS Detected';
-          } else if (_isJabatanExcluded) {
-            // ✅ Hanya jabatan excluded yang bypass
-            _validationStatus = 'Ready';
-            _dalamRadius = true;
-          } else if (_dalamRadius) {
-            _validationStatus = 'Ready';
-          } else {
-            _validationStatus = 'Out of Range';
-          }
-        });
+            if (_securityState.action == SecurityAction.block) {
+              _validationStatus = 'Fake GPS Detected';
+            } else if (_isJabatanExcluded) {
+              _validationStatus = 'Ready';
+            } else if (_securityState.isInRadius) {
+              _validationStatus = 'Ready';
+            } else {
+              _validationStatus = 'Out of Range';
+            }
+          });
+        }
       }
-    } catch (e) {
-      debugPrint('⚠️ Validation error: $e');
-
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _isInitialCheckComplete = true;
-          _validationStatus = 'Ready';
-
-          // ✅ FIXED: Hanya bypass untuk jabatan excluded
-          if (_isJabatanExcluded) {
-            _dalamRadius = true;
-          }
-        });
-      }
-    }
-  }
-
-  /// Offline mode: always pass fake GPS check
-  Future<void> _detectFakeGps(Position position) async {
-    if (_isDisposed || !mounted) return;
-    setState(() {
-      _isFakeGpsDetected = false;
-      _fakeGpsMessage = null;
-      _detectionTypes = [];
-    });
-  }
-
-  /// Offline mode: always in radius
-  Future<void> _validasiLokasi() async {
-    if (_isDisposed || !mounted || _currentLatLng == null) return;
-    if (_isValidatingLocation) return;
-
-    setState(() {
-      _isValidatingLocation = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    if (mounted && !_isDisposed) {
-      setState(() {
-        _dalamRadius = true;
-        _jarakKeProject = 50.0;
-        _isValidatingLocation = false;
-      });
+    } else if (_presensiData != null && isFirstGps) {
+      // Config might not be set if project lokasi is null
+      await _runSecurityCheck();
     }
   }
 
@@ -343,14 +341,13 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
     setState(() {
       _isLoadingPresensi = true;
-      _isFakeGpsDetected = false;
-      _fakeGpsMessage = null;
-      _detectionTypes = [];
       _isInitialCheckComplete = false;
       _validationStatus = 'Refreshing...';
     });
 
-    // FakeGpsDetector removed (offline mode)
+    _securityManager.reset();
+    _securityState = SecurityState.initial();
+    _securityConfigured = false;
 
     await _cekPresensi();
 
@@ -361,7 +358,9 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       );
       if (mounted && !_isDisposed) {
         await _applyNewPosition(pos, initial: true);
-        await _runValidations();
+        if (!_isInitialCheckComplete) {
+          await _runSecurityCheck();
+        }
       }
     } catch (e) {
       if (mounted && !_isDisposed) {
@@ -381,19 +380,18 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   void _handlePresensiButton() {
     final isHariLibur = _presensiData?['is_hari_libur'] ?? false;
 
-    // ✅ FIXED: Bypass radius check HANYA untuk jabatan excluded
+    // Bypass radius check ONLY for jabatan excluded
     if (_isJabatanExcluded) {
       debugPrint('🔓 Bypass radius check - Jabatan Excluded');
       _navigateToSelfie();
       return;
     }
 
-    // ✅ CRITICAL: Untuk hari libur, tetap cek radius
     if (isHariLibur) {
       debugPrint('🏖️ Hari Libur - tetap cek radius');
     }
 
-    if (_isFakeGpsDetected) {
+    if (_securityState.action == SecurityAction.block) {
       _showFakeGpsBlockDialog();
       return;
     }
@@ -403,21 +401,13 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       return;
     }
 
-    if (_isValidatingLocation) {
-      CustomSnackbar.showWarning(
-        context,
-        'Sedang memvalidasi lokasi, tunggu sebentar...',
-      );
-      return;
-    }
-
-    // ✅ CRITICAL: Cek radius untuk semua (kecuali jabatan excluded)
-    if (!_dalamRadius) {
-      if (_jarakKeProject != null) {
+    if (!_securityState.isInRadius) {
+      final distance = _securityState.distanceToProject;
+      if (distance != null) {
         final radius = _presensiData?['project']?['radius']?.toDouble() ?? 0.0;
         CustomSnackbar.showError(
           context,
-          'Anda berada ${_jarakKeProject!.toStringAsFixed(0)} meter dari lokasi '
+          'Anda berada ${distance.toStringAsFixed(0)} meter dari lokasi '
           '(radius: ${radius.toStringAsFixed(0)}m). Presensi tidak dapat dilakukan.',
         );
       } else {
@@ -472,6 +462,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           jadwalId: jadwalId,
           latitude: _currentLatLng!.latitude,
           longitude: _currentLatLng!.longitude,
+          presensiToken: _presensiData?['presensi_token'] ?? '',
+          securityManager: _securityManager,
         ),
         settings: const RouteSettings(name: '/selfie'),
       ),
@@ -479,115 +471,274 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   }
 
   void _showFakeGpsBlockDialog() {
+    final detections = _securityState.detections;
     final messages = <String>[];
 
-    if (_detectionTypes.contains('developerMode')) {
-      messages.add('• Opsi Developer aktif di perangkat Anda');
-    }
-    if (_detectionTypes.contains('mockLocation')) {
-      messages.add('• Mock Location terdeteksi aktif');
-    }
-    if (_detectionTypes.contains('lowAccuracy')) {
-      messages.add('• Akurasi GPS mencurigakan');
-    }
-    if (_detectionTypes.contains('unnaturalMovement')) {
-      messages.add('• Perpindahan lokasi tidak wajar terdeteksi');
-    }
-    if (_detectionTypes.contains('fakeGpsApp')) {
-      messages.add('• Aplikasi fake GPS terdeteksi di perangkat');
+    for (final d in detections) {
+      messages.add('• ${d.message}');
     }
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        final dlgScreenWidth = MediaQuery.of(context).size.width;
-        final dlgScreenHeight = MediaQuery.of(context).size.height;
-        return AlertDialog(
+        final sw = MediaQuery.of(context).size.width;
+        final sh = MediaQuery.of(context).size.height;
+        final borderRadius = sw * 0.05;
+        final padding = sw * 0.05;
+        final iconSize = (sw * 0.14).clamp(48.0, 72.0);
+        final titleSize = (sw * 0.048).clamp(16.0, 20.0);
+        final messageSize = (sw * 0.037).clamp(13.0, 16.0);
+        final buttonHeight = (sh * 0.055).clamp(44.0, 56.0);
+
+        return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(dlgScreenWidth * 0.04),
+            borderRadius: BorderRadius.circular(borderRadius),
           ),
-          title: Column(
-            children: [
-              Icon(
-                Icons.security,
-                size: (dlgScreenWidth * 0.16).clamp(48.0, 72.0),
-                color: AppColors.error,
-              ),
-              SizedBox(height: dlgScreenHeight * 0.018),
-              Text(
-                'Fake GPS Terdeteksi',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: (dlgScreenWidth * 0.045).clamp(15.0, 19.0),
-                  fontWeight: FontWeight.bold,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: sw * 0.85,
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: sh * 0.7,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.error.withValues(alpha: 0.15),
+                  blurRadius: sw * 0.08,
+                  offset: const Offset(0, 12),
                 ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: sw * 0.04,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Sistem mendeteksi indikasi penggunaan fake GPS:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                SizedBox(height: dlgScreenHeight * 0.014),
-                ...messages.map(
-                  (msg) => Padding(
-                    padding: EdgeInsets.only(bottom: dlgScreenHeight * 0.005),
-                    child: Text(
-                      msg,
-                      style: TextStyle(
-                        fontSize: (dlgScreenWidth * 0.033).clamp(11.0, 14.0),
-                      ),
+                // Accent gradient top bar
+                Container(
+                  height: sw * 0.015,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(borderRadius),
+                      topRight: Radius.circular(borderRadius),
+                    ),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.error,
+                        AppColors.error.withValues(alpha: 0.7),
+                      ],
                     ),
                   ),
                 ),
-                SizedBox(height: dlgScreenHeight * 0.018),
-                const Text(
-                  'Untuk keamanan presensi, silakan:',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                SizedBox(height: dlgScreenHeight * 0.01),
-                Text(
-                  '1. Matikan Opsi Developer\n'
-                  '2. Matikan Mock Location\n'
-                  '3. Uninstall aplikasi fake GPS\n'
-                  '4. Restart perangkat Anda',
-                  style: TextStyle(
-                    fontSize: (dlgScreenWidth * 0.033).clamp(11.0, 14.0),
+
+                Flexible(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      padding,
+                      padding * 0.8,
+                      padding,
+                      padding,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Gradient Icon
+                        Container(
+                          width: iconSize,
+                          height: iconSize,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.error.withValues(alpha: 0.12),
+                                AppColors.error.withValues(alpha: 0.06),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.error.withValues(alpha: 0.25),
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.security,
+                            size: iconSize * 0.55,
+                            color: AppColors.error,
+                          ),
+                        ),
+
+                        SizedBox(height: sh * 0.02),
+
+                        // Title
+                        Text(
+                          'Fake GPS Terdeteksi',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 0.2,
+                            height: 1.3,
+                          ),
+                        ),
+
+                        SizedBox(height: sh * 0.012),
+
+                        // Scrollable content
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Sistem mendeteksi indikasi penggunaan fake GPS:',
+                                  style: TextStyle(
+                                    fontSize: messageSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                SizedBox(height: sh * 0.01),
+                                ...messages.map(
+                                  (msg) => Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: sh * 0.005,
+                                    ),
+                                    child: Text(
+                                      msg,
+                                      style: TextStyle(
+                                        fontSize: messageSize,
+                                        color: AppColors.textSecondary,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: sh * 0.015),
+                                Text(
+                                  'Untuk keamanan presensi, silakan:',
+                                  style: TextStyle(
+                                    fontSize: messageSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                SizedBox(height: sh * 0.008),
+                                Text(
+                                  '1. Matikan Opsi Developer\n'
+                                  '2. Matikan Mock Location\n'
+                                  '3. Uninstall aplikasi fake GPS\n'
+                                  '4. Restart perangkat Anda',
+                                  style: TextStyle(
+                                    fontSize: messageSize,
+                                    color: AppColors.textSecondary,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: sh * 0.028),
+
+                        // Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: buttonHeight,
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    Navigator.pop(context);
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.textSecondary,
+                                    side: BorderSide(
+                                      color: Colors.grey.shade300,
+                                      width: 1.5,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        sw * 0.03,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Tutup',
+                                    style: TextStyle(
+                                      fontSize: messageSize,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: sw * 0.03),
+                            Expanded(
+                              child: SizedBox(
+                                height: buttonHeight,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _onRefreshPressed();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.error,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        sw * 0.03,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Coba Lagi',
+                                    style: TextStyle(
+                                      fontSize: messageSize,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text('Tutup'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _onRefreshPressed();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Coba Lagi'),
-            ),
-          ],
         );
       },
     );
   }
+
+  // ------------------------------------------------------------------
+  // Convenience getters for the build method (keeps UI code clean)
+  // ------------------------------------------------------------------
+
+  bool get _isFakeGpsDetected =>
+      _securityState.action == SecurityAction.block;
+
+  bool get _dalamRadius => _securityState.isInRadius;
+
+  double? get _jarakKeProject => _securityState.distanceToProject;
 
   @override
   Widget build(BuildContext context) {
@@ -687,7 +838,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         : null;
     final projectRadius = project?['radius']?.toDouble() ?? 0.0;
 
-    // ✅ FIXED: canPresensiByLocation - HANYA bypass untuk jabatan excluded
+    // ONLY bypass for jabatan excluded
     final canPresensiByLocation = _dalamRadius || _isJabatanExcluded;
 
     final canPresensiByTime = isHariLibur
@@ -698,7 +849,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         _hasGpsPosition &&
         _isInitialCheckComplete &&
         !_isFakeGpsDetected &&
-        !_isValidatingLocation &&
         canPresensiByLocation &&
         canPresensiByTime;
 
@@ -709,11 +859,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           // Map
           Positioned.fill(
             child: Center(
-              child:
-                  // AspectRatio(
-                  //   aspectRatio: 0.6,
-                  //   child:
-                  FlutterMap(
+              child: FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
                       initialCenter: displayLocation,
@@ -822,7 +968,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                         ),
                     ],
                   ),
-              // ),
             ),
           ),
 
@@ -887,7 +1032,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
             ),
           ),
 
-          // ✅ FIXED: Holiday banner - tetap tampil tapi tidak bypass radius
+          // Holiday banner - tetap tampil tapi tidak bypass radius
           if (isHariLibur && !_isFakeGpsDetected && _isInitialCheckComplete)
             Positioned(
               top: 0,
@@ -1013,7 +1158,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                               ),
                               SizedBox(height: screenHeight * 0.005),
                               Text(
-                                _fakeGpsMessage ?? 'Sistem mendeteksi fake GPS',
+                                _securityState.primaryMessage ??
+                                    'Sistem mendeteksi fake GPS',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: (screenWidth * 0.03).clamp(
@@ -1105,7 +1251,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
               ),
             ),
 
-          // ✅ FIXED: Out of radius warning - TETAP TAMPIL untuk hari libur (kecuali jabatan excluded)
+          // Out of radius warning
           if (!_isJabatanExcluded &&
               !_isFakeGpsDetected &&
               !_dalamRadius &&
@@ -1457,8 +1603,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                                   ? _validationStatus
                                   : _isFakeGpsDetected
                                   ? 'Fake GPS Terdeteksi'
-                                  : _isValidatingLocation
-                                  ? 'Memvalidasi...'
                                   : isHariLibur
                                   ? (sudahMasuk
                                         ? 'Presensi Pulang (Libur)'

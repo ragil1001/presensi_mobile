@@ -8,6 +8,7 @@ import '../../../data/models/informasi_model.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/error_state_widget.dart';
+import '../../../core/widgets/app_refresh_indicator.dart';
 
 class DetailInformasiPage extends StatefulWidget {
   final int informasiKaryawanId;
@@ -126,19 +127,22 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
                       message: _errorMessage ?? 'Data tidak ditemukan',
                       onRetry: _loadDetail,
                     )
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildInfoCard(),
-                        const SizedBox(height: 16),
-                        _buildContentCard(),
-                        if (_informasi!.hasFile) ...[
+                  : AppRefreshIndicator(
+                      onRefresh: _loadDetail,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildInfoCard(),
                           const SizedBox(height: 16),
-                          _buildFileLampiran(),
+                          _buildContentCard(),
+                          if (_informasi!.hasFile) ...[
+                            const SizedBox(height: 16),
+                            _buildFileLampiran(),
+                          ],
+                          const SizedBox(height: 16),
+                          _buildTimeline(),
                         ],
-                        const SizedBox(height: 16),
-                        _buildTimeline(),
-                      ],
+                      ),
                     ),
             ),
           ],

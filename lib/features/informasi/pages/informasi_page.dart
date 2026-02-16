@@ -113,7 +113,19 @@ class _InformasiPageState extends State<InformasiPage> {
                   final filteredList = _getFilteredList(provider);
 
                   if (filteredList.isEmpty) {
-                    return _buildEmpty(screenWidth);
+                    return AppRefreshIndicator(
+                      onRefresh: () async {
+                        _lastRefreshTime = null;
+                        await _loadData();
+                      },
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          child: _buildEmpty(screenWidth),
+                        ),
+                      ),
+                    );
                   }
 
                   return AppRefreshIndicator(

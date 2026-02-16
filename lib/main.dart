@@ -14,6 +14,7 @@ import 'providers/notification_provider.dart';
 import 'providers/lembur_provider.dart';
 import 'providers/informasi_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'core/network/error_interceptor.dart';
 import 'core/constants/app_colors.dart';
 import 'core/widgets/connectivity_banner.dart';
 import 'core/constants/app_routes.dart';
@@ -34,21 +35,26 @@ class LogoutHandler {
     if (_isLoggingOut) return;
     _isLoggingOut = true;
 
+    // Tandai voluntary logout agar interceptor tidak tampilkan "Sesi Berakhir"
+    ErrorInterceptor.isVoluntaryLogout = true;
+
     try {
       final authProvider = context.read<AuthProvider>();
       final notifProvider = context.read<NotificationProvider>();
 
       notifProvider.clear();
 
+      // Logout dulu (hapus token server + lokal), baru navigasi
+      await authProvider.logout();
+
       if (context.mounted) {
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
       }
-
-      await authProvider.logout();
     } finally {
       _isLoggingOut = false;
+      ErrorInterceptor.isVoluntaryLogout = false;
     }
   }
 }

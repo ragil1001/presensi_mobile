@@ -1,11 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:image/image.dart' as img;
 import '../../../core/constants/app_colors.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/services/gps_security/security_manager.dart';
+import '../../../core/services/gps_security/models.dart';
 import '../../../providers/presensi_provider.dart';
 import '../../../features/navigation/widgets/custom_presensi_dialog.dart';
 
@@ -14,6 +19,8 @@ class SelfiePage extends StatefulWidget {
   final int jadwalId;
   final double latitude;
   final double longitude;
+  final String presensiToken;
+  final SecurityManager securityManager;
 
   const SelfiePage({
     super.key,
@@ -21,6 +28,8 @@ class SelfiePage extends StatefulWidget {
     required this.jadwalId,
     required this.latitude,
     required this.longitude,
+    required this.presensiToken,
+    required this.securityManager,
   });
 
   @override
@@ -181,11 +190,26 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
+      // Start compression and deviceId fetch in parallel while user reviews preview
+      final compressionFuture = _compressImage(File(image.path));
+      final deviceIdFuture = ApiClient().getDeviceId();
+
       // ✅ Preview konfirmasi dengan custom dialog yang lebih modern
       final confirmed = await _showPhotoPreview(image.path);
 
       if (confirmed == true && mounted) {
-        await _submitPresensi(File(image.path));
+        await _submitPresensi(
+          File(image.path),
+          compressionFuture: compressionFuture,
+          deviceIdFuture: deviceIdFuture,
+        );
+      } else {
+        // User cancelled — cancel the pre-started futures by ignoring their results
+        compressionFuture.then((compressed) {
+          if (compressed.path != image.path) {
+            compressed.delete().catchError((_) {});
+          }
+        }).catchError((_) {});
       }
     } catch (e) {
       if (mounted) {
@@ -202,10 +226,15 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
     }
   }
 
-  // ✅ NEW: Custom photo preview dialog
+  // ✅ Custom photo preview dialog (gold standard)
   Future<bool?> _showPhotoPreview(String imagePath) async {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+    final borderRadius = sw * 0.05;
+    final padding = sw * 0.05;
+    final titleSize = (sw * 0.048).clamp(16.0, 20.0);
+    final messageSize = (sw * 0.037).clamp(13.0, 16.0);
+    final buttonHeight = (sh * 0.055).clamp(44.0, 56.0);
 
     return showDialog<bool>(
       context: context,
@@ -213,36 +242,75 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(borderRadius),
           ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
           child: Container(
+            width: sw * 0.85,
             constraints: BoxConstraints(
               maxWidth: 400,
-              maxHeight: screenHeight * 0.8,
+              maxHeight: sh * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.info.withValues(alpha: 0.15),
+                  blurRadius: sw * 0.08,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: sw * 0.04,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
+                // Accent gradient top bar
                 Container(
-                  padding: EdgeInsets.all(screenWidth * 0.04),
+                  height: sw * 0.015,
                   decoration: BoxDecoration(
-                    color: AppColors.infoSoft,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(borderRadius),
+                      topRight: Radius.circular(borderRadius),
                     ),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.info,
+                        AppColors.info.withValues(alpha: 0.7),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Icon + Title row
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    padding,
+                    padding * 0.6,
+                    padding,
+                    0,
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.photo_camera, color: AppColors.info, size: 24),
-                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.photo_camera,
+                        color: AppColors.info,
+                        size: (sw * 0.06).clamp(20.0, 26.0),
+                      ),
+                      SizedBox(width: sw * 0.03),
                       Text(
                         'Preview Foto',
                         style: TextStyle(
-                          fontSize: (screenWidth * 0.045).clamp(16.0, 18.0),
+                          fontSize: titleSize,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ],
@@ -252,9 +320,9 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                 // Photo Preview
                 Flexible(
                   child: Container(
-                    margin: EdgeInsets.all(screenWidth * 0.04),
+                    margin: EdgeInsets.all(padding * 0.8),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(sw * 0.03),
                       child: AspectRatio(
                         aspectRatio: 3 / 4,
                         child: Image.file(File(imagePath), fit: BoxFit.cover),
@@ -265,53 +333,56 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
                 // Info text
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                  padding: EdgeInsets.symmetric(horizontal: padding),
                   child: Text(
                     'Pastikan wajah Anda terlihat jelas',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: (screenWidth * 0.035).clamp(12.0, 14.0),
-                      color: Colors.black54,
+                      fontSize: messageSize,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: sh * 0.02),
 
                 // Buttons
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                    screenWidth * 0.05,
+                    padding,
                     0,
-                    screenWidth * 0.05,
-                    screenWidth * 0.05,
+                    padding,
+                    padding,
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: (screenHeight * 0.055).clamp(44.0, 56.0),
+                          height: buttonHeight,
                           child: OutlinedButton.icon(
                             onPressed: () => Navigator.pop(context, false),
                             icon: const Icon(Icons.refresh, size: 15),
                             label: const Text('Ulangi'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              side: const BorderSide(
-                                color: AppColors.error,
+                              foregroundColor: AppColors.textSecondary,
+                              side: BorderSide(
+                                color: Colors.grey.shade300,
                                 width: 1.5,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(
+                                  sw * 0.03,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                      SizedBox(width: screenWidth * 0.03),
+                      SizedBox(width: sw * 0.03),
                       Expanded(
                         child: SizedBox(
-                          height: (screenHeight * 0.055).clamp(44.0, 56.0),
+                          height: buttonHeight,
                           child: ElevatedButton.icon(
                             onPressed: () => Navigator.pop(context, true),
                             icon: const Icon(Icons.check, size: 15),
@@ -321,7 +392,9 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(
+                                  sw * 0.03,
+                                ),
                               ),
                             ),
                           ),
@@ -338,52 +411,126 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
     );
   }
 
-  // TODO: Implement photo upload with real backend
-  Future<void> _submitPresensi(File imageFile) async {
+  /// Compress and submit presensi via API
+  Future<void> _submitPresensi(
+    File imageFile, {
+    Future<File>? compressionFuture,
+    Future<String?>? deviceIdFuture,
+  }) async {
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      // Simulate processing
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Layer 9: Selfie timestamp correlation
+      final selfieTimestampMs = DateTime.now().millisecondsSinceEpoch;
+
+      // 1. Await pre-started compression (already running in background)
+      final compressed = await (compressionFuture ?? _compressImage(imageFile));
+
+      // 2. Use cached GPS position (already obtained before camera)
+      final position = _currentPosition ??
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 5),
+          );
+
+      // 3. Build security payload (HMAC-signed) — use pre-fetched deviceId
+      final deviceId = await (deviceIdFuture ?? ApiClient().getDeviceId()) ?? '';
+      final securityPayload = widget.securityManager.buildPayload(
+        presensiToken: widget.presensiToken,
+        deviceId: deviceId,
+        jenis: widget.mode.toUpperCase(),
+        jadwalId: widget.jadwalId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        selfieTimestampMs: selfieTimestampMs,
+      );
+
+      // 4. Submit via PresensiProvider
+      final provider = Provider.of<PresensiProvider>(context, listen: false);
+      final result = await provider.submitPresensi(
+        jenis: widget.mode.toUpperCase(),
+        jadwalId: widget.jadwalId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        foto: compressed,
+        securityPayload: securityPayload,
+      );
 
       if (!mounted) return;
 
       HapticFeedback.mediumImpact();
 
-      // Show success dialog (offline mode)
-      await _showSuccessDialog({
-        'message': 'Presensi berhasil dicatat (offline mode)',
-        'data': {
-          'status_text': widget.mode == 'masuk' ? 'Hadir' : 'Pulang',
-          'keterangan': 'Presensi ${widget.mode}',
-          'waktu': TimeOfDay.now().format(context),
-        },
-      });
+      // 5. Show success dialog with real response data
+      if (result != null) {
+        await _showSuccessDialog({
+          'message': 'Presensi berhasil dicatat',
+          'data': result,
+        });
+      }
+
+      // Clean up compressed file
+      if (compressed.path != imageFile.path) {
+        try {
+          await compressed.delete();
+        } catch (_) {}
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
 
+        final message = e.toString().contains('AppException')
+            ? e.toString().replaceAll('Exception: ', '')
+            : e.toString().replaceAll('Exception: ', '');
+
         CustomPresensiDialog.show(
           context: context,
           title: 'Gagal Menyimpan Presensi',
-          message: 'Terjadi kesalahan saat menyimpan presensi.',
+          message: message,
           icon: Icons.error_outline,
           iconColor: AppColors.error,
-          additionalInfo: e.toString(),
           confirmText: 'OK',
         );
       }
     }
   }
 
-  // ✅ NEW: Show success dialog with custom design
+  /// Compress image in background isolate (non-blocking)
+  Future<File> _compressImage(File file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final outputPath =
+          '${file.parent.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final compressedBytes = await compute(_compressImageIsolate, {
+        'bytes': bytes,
+        'outputPath': outputPath,
+      });
+
+      if (compressedBytes == null) return file;
+
+      final compressedFile = File(outputPath);
+      await compressedFile.writeAsBytes(compressedBytes);
+      return compressedFile;
+    } catch (e) {
+      debugPrint('Image compression failed, using original: $e');
+      return file;
+    }
+  }
+
+  // ✅ Success dialog (gold standard)
   Future<void> _showSuccessDialog(Map<String, dynamic> responseData) async {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+    final borderRadius = sw * 0.05;
+    final padding = sw * 0.05;
+    final iconSize = (sw * 0.14).clamp(48.0, 72.0);
+    final titleSize = (sw * 0.048).clamp(16.0, 20.0);
+    final messageSize = (sw * 0.037).clamp(13.0, 16.0);
+    final buttonHeight = (sh * 0.055).clamp(44.0, 56.0);
 
     await showDialog(
       context: context,
@@ -396,120 +543,179 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(borderRadius),
           ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
           child: Container(
-            width: screenWidth * 0.85,
+            width: sw * 0.85,
             constraints: BoxConstraints(
               maxWidth: 400,
-              maxHeight: screenHeight * 0.7,
+              maxHeight: sh * 0.7,
             ),
-            padding: EdgeInsets.all(screenWidth * 0.05),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.success.withValues(alpha: 0.15),
+                  blurRadius: sw * 0.08,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: sw * 0.04,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Success Icon
+                // Accent gradient top bar
                 Container(
-                  width: (screenWidth * 0.15).clamp(50.0, 80.0),
-                  height: (screenWidth * 0.15).clamp(50.0, 80.0),
+                  height: sw * 0.015,
                   decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.3),
-                      width: 2,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(borderRadius),
+                      topRight: Radius.circular(borderRadius),
+                    ),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.success,
+                        AppColors.success.withValues(alpha: 0.7),
+                      ],
                     ),
                   ),
-                  child: Icon(
-                    Icons.check_circle,
-                    size: (screenWidth * 0.15).clamp(50.0, 80.0) * 0.6,
-                    color: AppColors.success,
-                  ),
                 ),
 
-                SizedBox(height: screenHeight * 0.02),
-
-                // Title
-                Text(
-                  'Presensi Berhasil!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: (screenWidth * 0.05).clamp(16.0, 20.0),
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-
-                SizedBox(height: screenHeight * 0.015),
-
-                // Message
-                Text(
-                  responseData['message'] ?? 'Presensi berhasil dicatat',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: (screenWidth * 0.038).clamp(13.0, 16.0),
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-
-                SizedBox(height: screenHeight * 0.02),
-
-                // Info Container
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(screenWidth * 0.04),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    padding,
+                    padding * 0.8,
+                    padding,
+                    padding,
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (statusText.isNotEmpty)
-                        _buildInfoRow('Status', statusText),
-                      if (keterangan != null && keterangan.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _buildInfoRow('Keterangan', keterangan),
-                      ],
-                      if (waktu.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _buildInfoRow('Waktu', waktu),
-                      ],
+                      // Gradient Icon
+                      Container(
+                        width: iconSize,
+                        height: iconSize,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.success.withValues(alpha: 0.12),
+                              AppColors.success.withValues(alpha: 0.06),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.success.withValues(alpha: 0.25),
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.check_circle,
+                          size: iconSize * 0.55,
+                          color: AppColors.success,
+                        ),
+                      ),
+
+                      SizedBox(height: sh * 0.02),
+
+                      // Title
+                      Text(
+                        'Presensi Berhasil!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                          letterSpacing: 0.2,
+                          height: 1.3,
+                        ),
+                      ),
+
+                      SizedBox(height: sh * 0.012),
+
+                      // Message
+                      Text(
+                        responseData['message'] ?? 'Presensi berhasil dicatat',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: messageSize,
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+
+                      SizedBox(height: sh * 0.02),
+
+                      // Info Container
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(sw * 0.04),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(sw * 0.03),
+                          border: Border.all(
+                            color: AppColors.success.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            if (statusText.isNotEmpty)
+                              _buildInfoRow('Status', statusText),
+                            if (keterangan != null &&
+                                keterangan.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              _buildInfoRow('Keterangan', keterangan),
+                            ],
+                            if (waktu.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              _buildInfoRow('Waktu', waktu),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: sh * 0.028),
+
+                      // OK Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: buttonHeight,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _handleSuccessAndReturn();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                sw * 0.03,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'OK',
+                            style: TextStyle(
+                              fontSize: messageSize,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
-                  ),
-                ),
-
-                SizedBox(height: screenHeight * 0.025),
-
-                // OK Button
-                SizedBox(
-                  width: double.infinity,
-                  height: (screenHeight * 0.055).clamp(44.0, 56.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _handleSuccessAndReturn();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'OK',
-                      style: TextStyle(
-                        fontSize: (screenWidth * 0.038).clamp(13.0, 16.0),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -778,4 +984,22 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       ],
     );
   }
+}
+
+/// Top-level function for compute() isolate — resize & compress image.
+List<int>? _compressImageIsolate(Map<String, dynamic> params) {
+  final bytes = Uint8List.fromList(params['bytes'] as List<int>);
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+
+  img.Image resized = decoded;
+  if (decoded.width > 800 || decoded.height > 800) {
+    resized = img.copyResize(
+      decoded,
+      width: decoded.width > decoded.height ? 800 : null,
+      height: decoded.height >= decoded.width ? 800 : null,
+    );
+  }
+
+  return img.encodeJpg(resized, quality: 60);
 }
