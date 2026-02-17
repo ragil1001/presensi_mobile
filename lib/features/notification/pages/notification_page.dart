@@ -47,8 +47,8 @@ class _NotificationPageState extends State<NotificationPage> {
     }
   }
 
-  Future<void> _loadNotifications() async {
-    if (!_shouldRefresh) return;
+  Future<void> _loadNotifications({bool force = false}) async {
+    if (!force && !_shouldRefresh) return;
 
     _lastRefreshTime = DateTime.now();
     final provider = context.read<NotificationProvider>();
@@ -114,8 +114,11 @@ class _NotificationPageState extends State<NotificationPage> {
         final informasiKaryawanId = int.tryParse(
           data['informasi_karyawan_id']?.toString() ?? '',
         );
+        final informasiId = int.tryParse(
+          data['informasi_id']?.toString() ?? '',
+        );
         debugPrint(
-          '🎯 [INFORMASI] Navigating to detail informasi: $informasiKaryawanId',
+          '[INFORMASI] Navigating to detail informasi: karyawan=$informasiKaryawanId, id=$informasiId',
         );
 
         if (informasiKaryawanId != null) {
@@ -129,10 +132,11 @@ class _NotificationPageState extends State<NotificationPage> {
 
       case 'tukar_shift_approved':
       case 'tukar_shift_rejected':
-        // Navigate ke detail tukar shift (jika sudah ada page-nya)
+      case 'tukar_shift_baru':
+      case 'tukar_shift_dibatalkan':
+        // Navigate ke detail tukar shift
         final tukarShiftId = int.tryParse(data['tukar_shift_id'] ?? '');
         if (tukarShiftId != null) {
-          // TODO: Implement detail tukar shift page
           Navigator.pushNamed(
             context,
             AppRoutes.detailTukarShift,
@@ -423,6 +427,18 @@ class _NotificationPageState extends State<NotificationPage> {
         icon = Icons.cancel;
         iconColor = AppColors.error;
         break;
+      case 'lembur_approved':
+        icon = Icons.check_circle;
+        iconColor = AppColors.success;
+        break;
+      case 'lembur_rejected':
+        icon = Icons.cancel;
+        iconColor = AppColors.error;
+        break;
+      case 'tukar_shift_baru':
+        icon = Icons.swap_horiz;
+        iconColor = Colors.blue;
+        break;
       case 'tukar_shift_approved':
         icon = Icons.check_circle;
         iconColor = Colors.blue;
@@ -430,6 +446,26 @@ class _NotificationPageState extends State<NotificationPage> {
       case 'tukar_shift_rejected':
         icon = Icons.cancel;
         iconColor = Colors.orange;
+        break;
+      case 'tukar_shift_dibatalkan':
+        icon = Icons.cancel;
+        iconColor = Colors.grey;
+        break;
+      case 'presensi_diupdate':
+        icon = Icons.update;
+        iconColor = Colors.teal;
+        break;
+      case 'presensi_alpa':
+        icon = Icons.warning;
+        iconColor = AppColors.error;
+        break;
+      case 'presensi_tidak_pulang':
+        icon = Icons.warning;
+        iconColor = Colors.orange;
+        break;
+      case 'informasi_baru':
+        icon = Icons.info;
+        iconColor = AppColors.primary;
         break;
       default:
         icon = Icons.notifications;

@@ -4,6 +4,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
 
 import 'providers/auth_provider.dart';
 import 'providers/izin_provider.dart';
@@ -15,6 +17,7 @@ import 'providers/lembur_provider.dart';
 import 'providers/informasi_provider.dart';
 import 'providers/connectivity_provider.dart';
 import 'core/network/error_interceptor.dart';
+import 'core/network/api_client.dart';
 import 'core/constants/app_colors.dart';
 import 'core/widgets/connectivity_banner.dart';
 import 'core/constants/app_routes.dart';
@@ -23,9 +26,75 @@ import 'app/router.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+  'high_importance_channel',
+  'Notifikasi Penting',
+  description: 'Channel untuk notifikasi penting',
+  importance: Importance.high,
+);
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+}
+
+/// Handle navigation when user taps a notification (from FCM data payload).
+void _handleFcmNavigation(Map<String, dynamic> data) {
+  final navigator = navigatorKey.currentState;
+  if (navigator == null) return;
+
+  final type = data['type'] ?? '';
+
+  switch (type) {
+    case 'izin_approved':
+    case 'izin_rejected':
+      final izinId = int.tryParse(data['pengajuan_izin_id'] ?? '');
+      if (izinId != null) {
+        navigator.pushNamed(AppRoutes.detailIzin, arguments: izinId);
+      }
+      break;
+    case 'lembur_approved':
+    case 'lembur_rejected':
+      final lemburId = int.tryParse(data['pengajuan_lembur_id'] ?? '');
+      if (lemburId != null) {
+        navigator.pushNamed(AppRoutes.detailLembur, arguments: lemburId);
+      }
+      break;
+    case 'tukar_shift_baru':
+    case 'tukar_shift_approved':
+    case 'tukar_shift_rejected':
+    case 'tukar_shift_dibatalkan':
+      final tukarShiftId = int.tryParse(data['tukar_shift_id'] ?? '');
+      if (tukarShiftId != null) {
+        navigator.pushNamed(AppRoutes.detailTukarShift,
+            arguments: tukarShiftId);
+      }
+      break;
+    case 'presensi_alpa':
+    case 'presensi_tidak_pulang':
+    case 'presensi_diupdate':
+      final tanggal = data['tanggal'] ?? '';
+      if (tanggal.isNotEmpty) {
+        navigator.pushNamed(AppRoutes.historyAbsensi,
+            arguments: {'tanggal': tanggal});
+      }
+      break;
+    case 'informasi_baru':
+      final informasiId = int.tryParse(data['informasi_id'] ?? '');
+      if (informasiId != null) {
+        navigator.pushNamed('/informasi');
+      }
+      break;
+    case 'reminder':
+      // Reminder taps just open the app - no specific navigation
+      break;
+    default:
+      navigator.pushNamed(AppRoutes.notifications);
+      break;
+  }
 }
 
 class LogoutHandler {
@@ -63,6 +132,34 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize local notifications
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const iosSettings = DarwinInitializationSettings();
+  const initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      // Handle tap on local notification
+      if (response.payload != null) {
+        try {
+          final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+          _handleFcmNavigation(data);
+        } catch (_) {}
+      }
+    },
+  );
+
+  // Create Android notification channel
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_channel);
+
   await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
@@ -82,13 +179,81 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _setupFCM() {
+    // Foreground messages: show local notification + update badge
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('FCM foreground message: ${message.notification?.title}');
+      _showLocalNotification(message);
+
+      // Update notification badge count
+      try {
+        final notifProvider = navigatorKey.currentContext != null
+            ? Provider.of<NotificationProvider>(
+                navigatorKey.currentContext!,
+                listen: false,
+              )
+            : null;
+        notifProvider?.onFcmMessageReceived();
+      } catch (_) {}
     });
 
+    // Background tap: user tapped notification from system tray
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('FCM onMessageOpenedApp: ${message.data}');
+      _handleFcmNavigation(message.data);
+    });
+
+    // Terminated tap: app was killed, opened via notification
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
+      if (message != null) {
+        debugPrint('FCM getInitialMessage: ${message.data}');
+        // Delay to allow navigation tree to build
+        Future.delayed(const Duration(seconds: 1), () {
+          _handleFcmNavigation(message.data);
+        });
+      }
+    });
+
+    // Token refresh: update server with new FCM token
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       debugPrint('FCM token refreshed');
+      _updateFcmTokenOnServer(newToken);
     });
+  }
+
+  void _showLocalNotification(RemoteMessage message) {
+    final notification = message.notification;
+    final android = notification?.android;
+
+    if (notification != null) {
+      flutterLocalNotificationsPlugin.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: const DarwinNotificationDetails(),
+        ),
+        payload: jsonEncode(message.data),
+      );
+    }
+  }
+
+  void _updateFcmTokenOnServer(String token) async {
+    try {
+      final apiClient = ApiClient();
+      await apiClient.dio.post('/mobile/fcm-token', data: {
+        'fcm_token': token,
+      });
+    } catch (e) {
+      debugPrint('Failed to update FCM token: $e');
+    }
   }
 
   @override
