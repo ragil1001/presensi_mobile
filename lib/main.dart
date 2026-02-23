@@ -16,6 +16,10 @@ import 'providers/notification_provider.dart';
 import 'providers/lembur_provider.dart';
 import 'providers/informasi_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'features/cleaning_service/providers/cs_beranda_provider.dart';
+import 'features/cleaning_service/providers/cs_task_provider.dart';
+import 'features/cleaning_service/providers/cs_area_provider.dart';
+import 'features/cleaning_service/providers/cs_riwayat_provider.dart';
 import 'core/network/error_interceptor.dart';
 import 'core/network/api_client.dart';
 import 'core/constants/app_colors.dart';
@@ -23,6 +27,7 @@ import 'core/widgets/connectivity_banner.dart';
 import 'core/constants/app_routes.dart';
 import 'app/theme.dart';
 import 'app/router.dart';
+import 'features/auth/pages/login_page.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -117,9 +122,10 @@ class LogoutHandler {
       await authProvider.logout();
 
       if (context.mounted) {
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (route) => false);
+        Navigator.of(context).pushAndRemoveUntil(
+          AppPageRoute.fade(const LoginPage()),
+          (route) => false,
+        );
       }
     } finally {
       _isLoggingOut = false;
@@ -269,6 +275,10 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => InformasiProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+        ChangeNotifierProvider(create: (_) => CsBerandaProvider()),
+        ChangeNotifierProvider(create: (_) => CsTaskProvider()),
+        ChangeNotifierProvider(create: (_) => CsAreaProvider()),
+        ChangeNotifierProvider(create: (_) => CsRiwayatProvider()),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
@@ -304,7 +314,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 600),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -327,13 +337,17 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthAndNavigate() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.initAuth();
 
-    await Future.delayed(const Duration(milliseconds: 1200));
+    // Run auth check and minimum display time in parallel
+    await Future.wait([
+      authProvider.initAuth(),
+      Future.delayed(const Duration(milliseconds: 800)),
+    ]);
 
     if (!mounted) return;
 
-    await _animationController.reverse(from: 1.0);
+    // Quick fade-out
+    await _animationController.reverse();
 
     if (!mounted) return;
 
@@ -346,8 +360,8 @@ class _SplashScreenState extends State<SplashScreen>
           settings: const RouteSettings(name: AppRoutes.home),
           pageBuilder: (context, animation, secondaryAnimation) =>
               const MainApp(),
-          transitionDuration: const Duration(milliseconds: 500),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionDuration: const Duration(milliseconds: 300),
+          reverseTransitionDuration: const Duration(milliseconds: 200),
           transitionsBuilder:
               (context, animation, secondaryAnimation, child) {
             return FadeTransition(

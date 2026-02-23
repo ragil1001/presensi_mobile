@@ -43,4 +43,22 @@ class AppColors {
   // ─── Utility ──────────────────────────────────────────────────
   static const Color divider = Color(0xFFE0E0E0);
   static const Color shadow = Color(0x1F000000);
+
+  // ─── CS Task Status ─────────────────────────────────────────────
+  static const Color statusCompleted = Color(0xFF4CAF50);
+  static const Color statusInProgress = Color(0xFFFF9800);
+  static const Color statusNotStarted = Color(0xFF9E9E9E);
+  static const Color statusNotDone = Color(0xFFF44336);
+
+  // ─── CS Semantic ────────────────────────────────────────────────
+  static const Color textTertiary = Color(0xFF9E9E9E);
+  static const Color border = Color(0xFFE0E0E0);
+  static const Color surfaceVariant = Color(0xFFF5F5F5);
+  static const Color shadowLight = Color(0x0D000000);
+
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [primary, primaryDark],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }

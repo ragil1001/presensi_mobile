@@ -54,6 +54,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     final username = await authProvider.getRememberedUsername();
     final shouldRemember = await authProvider.shouldRemember();
 
+    if (!mounted) return;
+
     if (username != null && shouldRemember) {
       setState(() {
         _usernameController.text = username;

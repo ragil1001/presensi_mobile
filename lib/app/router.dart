@@ -18,6 +18,10 @@ import '../features/presensi/pages/history_absensi_page.dart';
 import '../features/informasi/pages/informasi_page.dart';
 import '../features/informasi/pages/detail_informasi_page.dart';
 import '../features/tukar_shift/pages/tukar_shift_detail_page.dart';
+import '../features/cleaning_service/pages/cs_main_page.dart';
+import '../features/cleaning_service/pages/cs_area_selection_page.dart';
+import '../features/cleaning_service/pages/cs_task_detail_page.dart';
+import '../features/cleaning_service/pages/cs_riwayat_detail_page.dart';
 
 export '../features/home/pages/home_page.dart' show HomePage;
 export '../features/presensi/pages/data_absensi_page.dart' show DataAbsensiPage;
@@ -36,6 +40,8 @@ Map<String, WidgetBuilder> buildAppRoutes(Widget mainApp) {
     AppRoutes.notifications: (context) => const NotificationPage(),
     AppRoutes.historyAbsensi: (context) => const HistoryAbsensiPage(),
     AppRoutes.informasi: (context) => const InformasiPage(),
+    AppRoutes.csHome: (context) => const CsMainPage(),
+    AppRoutes.csAreaSelection: (context) => const CsAreaSelectionPage(),
   };
 }
 
@@ -78,6 +84,26 @@ Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     }
   }
 
+  if (settings.name == AppRoutes.csTaskDetail) {
+    final taskId = settings.arguments as int?;
+    if (taskId != null) {
+      return _createOptimizedRoute(
+        CsTaskDetailPage(taskId: taskId),
+        settings,
+      );
+    }
+  }
+
+  if (settings.name == AppRoutes.csRiwayatDetail) {
+    final tanggal = settings.arguments as String?;
+    if (tanggal != null) {
+      return _createOptimizedRoute(
+        CsRiwayatDetailPage(tanggal: tanggal),
+        settings,
+      );
+    }
+  }
+
   return null;
 }
 
@@ -107,6 +133,22 @@ class AppPageRoute {
             opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
             child: child,
           ),
+        );
+      },
+    );
+  }
+
+  /// Fade-only transition for logout/session-end navigation.
+  static Route<T> fade<T>(Widget page, {RouteSettings? settings}) {
+    return PageRouteBuilder<T>(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 200),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
         );
       },
     );

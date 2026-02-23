@@ -179,6 +179,44 @@ class HomeDataCard extends StatelessWidget {
     PresensiHariIni? presensi,
     bool isVerySmallScreen,
   ) {
+    // Hari ini ada izin/cuti yang disetujui
+    if (jadwal != null && jadwal.isIzin) {
+      return Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.04,
+          vertical: screenHeight * 0.01,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade50, Colors.teal.shade100],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.teal.shade300),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.event_busy,
+              color: Colors.teal.shade700,
+              size: (screenWidth * 0.05).clamp(17.0, 22.0),
+            ),
+            SizedBox(width: screenWidth * 0.02),
+            Text(
+              'Izin / Cuti',
+              style: TextStyle(
+                fontSize: bodyFontSize,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (jadwal != null && jadwal.isLibur && _hasNoPresensiTimes(presensi)) {
       return Container(
         padding: EdgeInsets.symmetric(
@@ -374,6 +412,9 @@ class HomeDataCard extends StatelessWidget {
 
   /// Hide attendance row for holiday with no presensi recorded
   bool _shouldHideAttendance(JadwalHariIni jadwal, PresensiHariIni presensi) {
+    if (jadwal.isIzin) {
+      return true;
+    }
     if (jadwal.isLibur && _hasNoPresensiTimes(presensi)) {
       return true;
     }

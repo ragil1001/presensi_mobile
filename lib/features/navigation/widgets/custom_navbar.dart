@@ -42,7 +42,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
     super.dispose();
   }
 
-  void _handlePresensiTap() {
+  void _handlePresensiTap() async {
     final provider = Provider.of<PresensiProvider>(context, listen: false);
     final data = provider.presensiData;
 
@@ -57,9 +57,21 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
 
     final jadwal = data!.jadwalHariIni!;
 
-    // Check 2: Libur → langsung masuk tanpa cek waktu
+    // Check 2: Izin/Cuti → blokir presensi
+    if (jadwal.isIzin) {
+      _showWarningDialog(
+        'Sedang Izin / Cuti',
+        'Anda tidak dapat presensi karena hari ini sedang izin/cuti yang sudah disetujui.',
+      );
+      return;
+    }
+
+    // Check 3: Libur → langsung masuk tanpa cek waktu
     if (jadwal.isLibur) {
-      Navigator.pushNamed(context, '/absensi');
+      await Navigator.pushNamed(context, '/absensi');
+      if (mounted) {
+        Provider.of<PresensiProvider>(context, listen: false).refreshPresensiData();
+      }
       return;
     }
 
@@ -90,7 +102,10 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
       }
     }
 
-    Navigator.pushNamed(context, '/absensi');
+    await Navigator.pushNamed(context, '/absensi');
+    if (mounted) {
+      Provider.of<PresensiProvider>(context, listen: false).refreshPresensiData();
+    }
   }
 
   void _showWarningDialog(String title, String message) {

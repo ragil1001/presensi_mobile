@@ -331,10 +331,11 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
     switch (result) {
       case "detail":
-        Navigator.push(
+        await Navigator.push(
           context,
           AppPageRoute.to(TukarShiftDetailPage(request: request)),
         );
+        if (mounted) _loadData();
         break;
       case "delete":
         _showConfirmDialog(

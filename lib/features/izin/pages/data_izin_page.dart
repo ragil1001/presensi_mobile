@@ -603,11 +603,14 @@ class _DataIzinPageState extends State<DataIzinPage> {
         ],
       ),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             AppPageRoute.to(DetailIzinPage(izinId: izin.id)),
           );
+          if (mounted) {
+            _loadData();
+          }
         },
         borderRadius: BorderRadius.circular(16),
         child: Column(

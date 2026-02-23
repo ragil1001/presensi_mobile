@@ -7,6 +7,7 @@ class PresensiData {
   final MonthInfo? monthInfo;
   final List<String> enabledIzinCategories;
   final List<String> enabledSubKategoriIzin;
+  final bool hasCsAccess;
 
   PresensiData({
     required this.statistik,
@@ -17,6 +18,7 @@ class PresensiData {
     this.monthInfo,
     this.enabledIzinCategories = const [],
     this.enabledSubKategoriIzin = const [],
+    this.hasCsAccess = false,
   });
 
   factory PresensiData.fromJson(Map<String, dynamic> json) {
@@ -51,6 +53,7 @@ class PresensiData {
       enabledSubKategoriIzin: parseStringList(
         json['enabled_sub_kategori_izin'],
       ),
+      hasCsAccess: json['has_cs_access'] ?? false,
     );
   }
 }
@@ -129,12 +132,14 @@ class JadwalHariIni {
   final String? waktuMulai;
   final String? waktuSelesai;
   final bool isLibur;
+  final bool isIzin;
 
   JadwalHariIni({
     required this.shiftCode,
     this.waktuMulai,
     this.waktuSelesai,
     required this.isLibur,
+    this.isIzin = false,
   });
 
   factory JadwalHariIni.fromJson(Map<String, dynamic> json) {
@@ -143,6 +148,7 @@ class JadwalHariIni {
       waktuMulai: json['waktu_mulai'],
       waktuSelesai: json['waktu_selesai'],
       isLibur: json['is_libur'] ?? false,
+      isIzin: json['is_izin'] ?? false,
     );
   }
 }
@@ -223,12 +229,14 @@ class PeriodInfo {
 class ProjectInfo {
   final int id;
   final String nama;
+  final String? bagian;
   final String tanggalMulai;
   final int waktuToleransi;
 
   ProjectInfo({
     required this.id,
     required this.nama,
+    this.bagian,
     required this.tanggalMulai,
     this.waktuToleransi = 0,
   });
@@ -237,10 +245,22 @@ class ProjectInfo {
     return ProjectInfo(
       id: json['id'] ?? 0,
       nama: json['nama'] ?? '',
+      bagian: json['bagian'],
       tanggalMulai: json['tanggal_mulai'] ?? '',
       waktuToleransi: json['waktu_toleransi'] ?? 0,
     );
   }
+
+  bool get isCsProject {
+    if (bagian == null || bagian!.isEmpty) return false;
+    final lower = bagian!.toLowerCase();
+    return _csKeywords.any((kw) => lower.contains(kw));
+  }
+
+  static const _csKeywords = [
+    'cleaning', 'kebersihan', 'cs', 'housekeeping', 'hk',
+    'janitor', 'ob', 'office boy', 'custodian',
+  ];
 }
 
 class HistoryItem {

@@ -89,7 +89,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
     });
   }
 
-  void _proceedToSelectKaryawan() {
+  void _proceedToSelectKaryawan() async {
     if (_selectedShiftId == null) {
       CustomSnackbar.showWarning(
         context,
@@ -102,12 +102,16 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
       (shift) => shift.id == _selectedShiftId,
     );
 
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       AppPageRoute.to(
         TukarShiftSelectKaryawanPage(selectedShift: selectedShift),
       ),
     );
+
+    if (result == true && mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   Widget _buildShimmerLayout(double screenWidth, double padding) {

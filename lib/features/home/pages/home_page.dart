@@ -476,13 +476,16 @@ class _HomePageState extends State<HomePage>
                                           label: 'Izin',
                                           screenWidth: screenWidth,
                                           screenHeight: screenHeight,
-                                          onTap: () {
-                                            Navigator.push(
+                                          onTap: () async {
+                                            await Navigator.push(
                                               context,
                                               AppPageRoute.to(
                                                 const PengajuanIzinPage(),
                                               ),
                                             );
+                                            if (mounted) {
+                                              _refreshAllData();
+                                            }
                                           },
                                         ),
                                         HomeMenuCard(
@@ -490,13 +493,16 @@ class _HomePageState extends State<HomePage>
                                           label: 'Lembur',
                                           screenWidth: screenWidth,
                                           screenHeight: screenHeight,
-                                          onTap: () {
-                                            Navigator.push(
+                                          onTap: () async {
+                                            await Navigator.push(
                                               context,
                                               AppPageRoute.to(
                                                 const PengajuanLemburPage(),
                                               ),
                                             );
+                                            if (mounted) {
+                                              _refreshAllData();
+                                            }
                                           },
                                         ),
                                         HomeMenuCard(
@@ -504,13 +510,16 @@ class _HomePageState extends State<HomePage>
                                           label: 'Tukar Shift',
                                           screenWidth: screenWidth,
                                           screenHeight: screenHeight,
-                                          onTap: () {
-                                            Navigator.push(
+                                          onTap: () async {
+                                            await Navigator.push(
                                               context,
                                               AppPageRoute.to(
                                                 const TukarShiftPage(),
                                               ),
                                             );
+                                            if (mounted) {
+                                              _refreshAllData();
+                                            }
                                           },
                                         ),
                                         HomeMenuCard(
@@ -518,13 +527,16 @@ class _HomePageState extends State<HomePage>
                                           label: 'Jadwal',
                                           screenWidth: screenWidth,
                                           screenHeight: screenHeight,
-                                          onTap: () {
-                                            Navigator.push(
+                                          onTap: () async {
+                                            await Navigator.push(
                                               context,
                                               AppPageRoute.to(
                                                 const JadwalPage(),
                                               ),
                                             );
+                                            if (mounted) {
+                                              _refreshAllData();
+                                            }
                                           },
                                         ),
                                       ],
@@ -540,13 +552,34 @@ class _HomePageState extends State<HomePage>
                                           label: 'Informasi',
                                           screenWidth: screenWidth,
                                           screenHeight: screenHeight,
-                                          onTap: () {
-                                            Navigator.pushNamed(
+                                          onTap: () async {
+                                            await Navigator.pushNamed(
                                               context,
                                               AppRoutes.informasi,
                                             );
+                                            if (mounted) {
+                                              _refreshAllData();
+                                            }
                                           },
                                         ),
+                                        if (presensiData?.hasCsAccess == true) ...[
+                                          SizedBox(width: screenWidth * 0.04),
+                                          HomeMenuCard(
+                                            assetPath: 'assets/cs.webp',
+                                            label: 'Cleaning\nService',
+                                            screenWidth: screenWidth,
+                                            screenHeight: screenHeight,
+                                            onTap: () async {
+                                              await Navigator.pushNamed(
+                                                context,
+                                                AppRoutes.csHome,
+                                              );
+                                              if (mounted) {
+                                                _refreshAllData();
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ],

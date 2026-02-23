@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../error/app_exception.dart';
 import '../widgets/force_logout_dialog.dart';
+import '../../app/router.dart';
+import '../../features/auth/pages/login_page.dart';
 import '../../main.dart';
 
 /// Interceptor Dio terpusat yang:
@@ -74,8 +76,8 @@ class ErrorInterceptor extends Interceptor {
       }
 
       // Navigate ke login
-      navigatorKey.currentState?.pushNamedAndRemoveUntil(
-        '/login',
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        AppPageRoute.fade(const LoginPage()),
         (route) => false,
       );
     } finally {

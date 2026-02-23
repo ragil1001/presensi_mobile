@@ -422,7 +422,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     _navigateToSelfie();
   }
 
-  void _navigateToSelfie() {
+  void _navigateToSelfie() async {
     final bisaMasuk = _presensiData?['bisa_presensi_masuk'] ?? false;
     final bisaPulang = _presensiData?['bisa_presensi_pulang'] ?? false;
     final isHariLibur = _presensiData?['is_hari_libur'] ?? false;
@@ -454,7 +454,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       }
     }
 
-    Navigator.push(
+    await Navigator.push(
       context,
       AppPageRoute.to(
         SelfiePage(
@@ -468,6 +468,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         settings: const RouteSettings(name: '/selfie'),
       ),
     );
+
+    if (mounted) {
+      _cekPresensi();
+    }
   }
 
   void _showFakeGpsBlockDialog() {

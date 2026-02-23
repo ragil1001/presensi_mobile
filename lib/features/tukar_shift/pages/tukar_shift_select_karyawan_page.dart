@@ -76,7 +76,7 @@ class _TukarShiftSelectKaryawanPageState
     });
   }
 
-  void _proceedToReview() {
+  void _proceedToReview() async {
     if (_selectedKaryawan == null) {
       CustomSnackbar.showWarning(
         context,
@@ -85,7 +85,7 @@ class _TukarShiftSelectKaryawanPageState
       return;
     }
 
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       AppPageRoute.to(
         TukarShiftReviewPage(
@@ -95,6 +95,10 @@ class _TukarShiftSelectKaryawanPageState
         ),
       ),
     );
+
+    if (result == true && mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   Widget _buildShimmerLayout(double screenWidth, double padding) {

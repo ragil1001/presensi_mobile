@@ -13,4 +13,10 @@ class AppRoutes {
   static const String historyAbsensi = '/history-absensi';
   static const String informasi = '/informasi'; // ✅ NEW
   static const String detailInformasi = '/detail-informasi'; // ✅ NEW
+
+  // ─── Cleaning Service ───────────────────────────────────────────
+  static const String csHome = '/cs/home';
+  static const String csAreaSelection = '/cs/area-selection';
+  static const String csTaskDetail = '/cs/task-detail';
+  static const String csRiwayatDetail = '/cs/riwayat-detail';
 }
