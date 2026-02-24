@@ -129,6 +129,8 @@ class AuthProvider with ChangeNotifier {
         final userData = jsonDecode(userDataJson) as Map<String, dynamic>;
         _currentUser = Karyawan.fromJson(userData);
         _state = AuthState.authenticated;
+        // Re-send FCM token in background (handles Firebase token refresh between sessions)
+        _refreshFcmToken();
       } catch (e) {
         debugPrint('Error parsing cached user data: $e');
         await _apiClient.clearAuth();
@@ -138,11 +140,29 @@ class AuthProvider with ChangeNotifier {
     } else {
       try {
         await refreshUser();
+        // Re-send FCM token after fresh user fetch
+        _refreshFcmToken();
       } catch (e) {
         await _apiClient.clearAuth();
         _token = null;
         _state = AuthState.unauthenticated;
       }
+    }
+  }
+
+  /// Re-register the current FCM token with the backend.
+  /// Called silently on auto-login to keep the token fresh.
+  Future<void> _refreshFcmToken() async {
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        await _apiClient.dio.post('/mobile/fcm-token', data: {
+          'fcm_token': fcmToken,
+        });
+        debugPrint('FCM token refreshed on init');
+      }
+    } catch (e) {
+      debugPrint('FCM token refresh on init failed (non-critical): $e');
     }
   }
 

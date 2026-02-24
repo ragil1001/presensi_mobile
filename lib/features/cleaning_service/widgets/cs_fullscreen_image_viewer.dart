@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../../../core/constants/app_colors.dart';
+import 'cs_network_image.dart';
 
 class CsFullscreenImageViewer extends StatefulWidget {
   final List<String> imageUrls;
@@ -85,16 +84,10 @@ class _CsFullscreenImageViewerState extends State<CsFullscreenImageViewer> {
                 minScale: 0.5,
                 maxScale: 4.0,
                 child: Center(
-                  child: CachedNetworkImage(
-                    imageUrl: url,
+                  child: CsNetworkImage(
+                    imagePath: url,
                     fit: BoxFit.contain,
-                    placeholder: (_, __) => const Center(
-                      child: CircularProgressIndicator(
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(AppColors.primary),
-                      ),
-                    ),
-                    errorWidget: (_, __, ___) => _buildError(),
+                    errorWidget: _buildError(),
                   ),
                 ),
               );

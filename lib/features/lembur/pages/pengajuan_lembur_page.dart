@@ -250,22 +250,27 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                                   children: [
                                     Icon(
                                       Icons.inbox_outlined,
-                                      size: 64,
+                                      size: (screenWidth * 0.16).clamp(48.0, 72.0),
                                       color: Colors.grey.shade300,
                                     ),
-                                    const SizedBox(height: 16),
+                                    SizedBox(height: (screenWidth * 0.04).clamp(12.0, 18.0)),
                                     Text(
                                       'Belum ada pengajuan lembur',
                                       style: TextStyle(
                                         color: Colors.grey.shade600,
-                                        fontSize: 16,
+                                        fontSize: (screenWidth * 0.04).clamp(13.0, 16.0),
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    SizedBox(height: (screenWidth * 0.02).clamp(6.0, 10.0)),
                                     TextButton.icon(
                                       onPressed: _navigateToForm,
-                                      icon: const Icon(Icons.add),
-                                      label: const Text('Ajukan Lembur'),
+                                      icon: Icon(Icons.add, size: (screenWidth * 0.045).clamp(16.0, 22.0)),
+                                      label: Text(
+                                        'Ajukan Lembur',
+                                        style: TextStyle(
+                                          fontSize: (screenWidth * 0.035).clamp(12.0, 15.0),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -280,7 +285,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                           },
                           child: ListView.builder(
                             controller: _scrollController,
-                            padding: const EdgeInsets.all(16),
+                            padding: EdgeInsets.all(screenWidth * 0.04),
                             itemCount:
                                 filteredList.length +
                                 (lemburProvider.isLoadingMore ? 1 : 0),
@@ -297,7 +302,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                                 );
                               }
                               final lembur = filteredList[index];
-                              return _buildLemburCard(lembur);
+                              return _buildLemburCard(lembur, screenWidth);
                             },
                           ),
                         ),
@@ -473,7 +478,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
     }
   }
 
-  Widget _buildLemburCard(lembur) {
+  Widget _buildLemburCard(lembur, double screenWidth) {
     Color statusColor;
     switch (lembur.status) {
       case 'pending':
@@ -492,8 +497,20 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
         statusColor = Colors.grey;
     }
 
+    final bool isVerySmall = screenWidth < 340;
+    final cardPad     = isVerySmall ? 10.0 : 12.0;
+    final labelFont   = (screenWidth * 0.028).clamp(10.0, 12.0);
+    final statusFont  = (screenWidth * 0.032).clamp(11.0, 13.0);
+    final dateLabel   = (screenWidth * 0.028).clamp(10.0, 12.0);
+    final dateValue   = (screenWidth * 0.034).clamp(12.0, 14.0);
+    final footerFont  = (screenWidth * 0.026).clamp(9.0, 11.0);
+    final iconSize    = (screenWidth * 0.06).clamp(20.0, 26.0);
+    final moreSize    = isVerySmall ? 18.0 : 20.0;
+    final gapW        = isVerySmall ? 8.0 : 12.0;
+    final gapH        = isVerySmall ?  6.0 :  8.0;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: isVerySmall ? 10 : 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -509,7 +526,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(cardPad),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
@@ -520,31 +537,31 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isVerySmall ? 6 : 8,
+                    vertical: isVerySmall ? 3 : 4,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.deepPurple.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Lembur',
                     style: TextStyle(
                       color: Colors.deepPurple,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: labelFont,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: gapW),
                 Expanded(
                   child: Text(
                     lembur.statusText,
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontSize: statusFont,
                     ),
                   ),
                 ),
@@ -553,7 +570,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                     _showMenu(context, lembur, details.globalPosition);
                   },
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: EdgeInsets.all(isVerySmall ? 4 : 6),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
@@ -561,7 +578,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                     child: Icon(
                       Icons.more_vert,
                       color: Colors.grey.shade700,
-                      size: 20,
+                      size: moreSize,
                     ),
                   ),
                 ),
@@ -569,44 +586,44 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(cardPad),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(isVerySmall ? 6 : 8),
                       decoration: BoxDecoration(
                         color: AppColors.info.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.access_time,
                         color: AppColors.info,
-                        size: 24,
+                        size: iconSize,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: gapW),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Tanggal Lembur',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: dateLabel,
                               color: Colors.black54,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: isVerySmall ? 3 : 4),
                           Text(
                             DateFormat(
                               'EEEE, dd MMMM yyyy',
                               'id_ID',
                             ).format(lembur.tanggal),
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: TextStyle(
+                              fontSize: dateValue,
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
                             ),
@@ -616,22 +633,25 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: gapH),
                 const Divider(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(lembur.createdAt)}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade600,
+                    Flexible(
+                      child: Text(
+                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(lembur.createdAt)}',
+                        style: TextStyle(
+                          fontSize: footerFont,
+                          color: Colors.grey.shade600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (lembur.fileSklUrl != null)
-                      const Icon(
+                      Icon(
                         Icons.attach_file,
-                        size: 16,
+                        size: isVerySmall ? 14 : 16,
                         color: AppColors.error,
                       ),
                   ],

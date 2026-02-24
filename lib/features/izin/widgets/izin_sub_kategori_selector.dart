@@ -14,218 +14,224 @@ Future<SubKategoriCutiKhusus?> showSubKategoriDialog({
   final durasiNumberFontSize = (screenWidth * 0.045).clamp(16.0, 18.0);
   final headerFontSize = (screenWidth * 0.045).clamp(16.0, 18.0);
 
+  // SlideTransition moves the already-composited GPU layer – no repaint.
+  // The old ScaleTransition was triggering a full repaint of the complex
+  // widget tree (gradient, boxShadow, AnimatedContainers) every frame.
   return showGeneralDialog<SubKategoriCutiKhusus>(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: true,
     barrierLabel: 'Sub Kategori',
     barrierColor: Colors.black.withValues(alpha: 0.4),
-    transitionDuration: const Duration(milliseconds: 250),
+    transitionDuration: const Duration(milliseconds: 200),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final slide = Tween<Offset>(
+        begin: const Offset(0.0, 0.06),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
       return FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.92, end: 1.0).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-          ),
-          child: child,
-        ),
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: SlideTransition(position: slide, child: child),
       );
     },
     pageBuilder: (context, animation, secondaryAnimation) {
       return Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: screenWidth * 0.88,
-            constraints: BoxConstraints(
-              maxWidth: 420,
-              maxHeight: MediaQuery.of(context).size.height * 0.75,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Branded Header ──
-                Container(
-                  padding: EdgeInsets.all(screenWidth * 0.045),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primary.withValues(alpha: 0.85),
-                      ],
-                    ),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      topRight: Radius.circular(20),
-                    ),
+        child: RepaintBoundary(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: screenWidth * 0.88,
+              constraints: BoxConstraints(
+                maxWidth: 420,
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.event_available,
-                          color: Colors.white,
-                          size: 22,
-                        ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Branded Header ──
+                  Container(
+                    padding: EdgeInsets.all(screenWidth * 0.045),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary,
+                          AppColors.primary.withValues(alpha: 0.85),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Pilih Jenis Cuti Khusus',
-                          style: TextStyle(
-                            fontSize: headerFontSize,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
                       ),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
-                            Icons.close,
+                            Icons.event_available,
                             color: Colors.white,
-                            size: 18,
+                            size: 22,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ── List ──
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.all(screenWidth * 0.04),
-                    itemCount: subKategoriList.length,
-                    itemBuilder: (context, index) {
-                      final subKategori = subKategoriList[index];
-                      final isSelected =
-                          selectedSubKategori?.value == subKategori.value;
-
-                      return Padding(
-                        padding: EdgeInsets.only(bottom: screenWidth * 0.02),
-                        child: InkWell(
-                          onTap: () => Navigator.of(context).pop(subKategori),
-                          borderRadius: BorderRadius.circular(14),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: EdgeInsets.all(screenWidth * 0.035),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Pilih Jenis Cuti Khusus',
+                            style: TextStyle(
+                              fontSize: headerFontSize,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppColors.primary.withValues(alpha: 0.08)
-                                  : AppColors.greyLight,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.divider,
-                                width: isSelected ? 2 : 1,
-                              ),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.15,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
                             ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.all(screenWidth * 0.025),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '${subKategori.durasiHari}',
-                                    style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: durasiNumberFontSize,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: screenWidth * 0.03),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        subKategori.label,
-                                        style: TextStyle(
-                                          fontSize: labelFontSize,
-                                          fontWeight: FontWeight.bold,
-                                          color: isSelected
-                                              ? AppColors.primary
-                                              : AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${subKategori.durasiHari} Hari',
-                                        style: TextStyle(
-                                          fontSize: durasiLabelFontSize,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (isSelected)
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: AppColors.primary,
-                                    size: (screenWidth * 0.06).clamp(
-                                      20.0,
-                                      24.0,
-                                    ),
-                                  ),
-                              ],
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 18,
                             ),
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
+
+                  // ── List ──
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.all(screenWidth * 0.04),
+                      itemCount: subKategoriList.length,
+                      itemBuilder: (context, index) {
+                        final subKategori = subKategoriList[index];
+                        final isSelected =
+                            selectedSubKategori?.value == subKategori.value;
+
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: screenWidth * 0.02),
+                          child: InkWell(
+                            onTap: () => Navigator.of(context).pop(subKategori),
+                            borderRadius: BorderRadius.circular(14),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: EdgeInsets.all(screenWidth * 0.035),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.08)
+                                    : AppColors.greyLight,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : AppColors.divider,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding:
+                                        EdgeInsets.all(screenWidth * 0.025),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${subKategori.durasiHari}',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: durasiNumberFontSize,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: screenWidth * 0.03),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          subKategori.label,
+                                          style: TextStyle(
+                                            fontSize: labelFontSize,
+                                            fontWeight: FontWeight.bold,
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${subKategori.durasiHari} Hari',
+                                          style: TextStyle(
+                                            fontSize: durasiLabelFontSize,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: AppColors.primary,
+                                      size: (screenWidth * 0.06).clamp(
+                                        20.0,
+                                        24.0,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),   // Container
+          ),     // Material
+        ),       // RepaintBoundary
+      );         // Center / return
+    },           // pageBuilder
+  );             // showGeneralDialog
 }
 
 /// Widget that displays the selected sub-kategori and opens the selection dialog.

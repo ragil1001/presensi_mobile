@@ -35,6 +35,9 @@ class SecurityManager {
   DeviceFingerprint? _deviceFingerprint;
   bool _initialChecksComplete = false;
 
+  /// Once true, SecurityManager will never unblock until reset().
+  bool _permanentlyBlocked = false;
+
   Position? _lastPosition;
 
   /// Callback invoked whenever the security state changes.
@@ -60,6 +63,13 @@ class SecurityManager {
   Future<void> processPosition(Position position) async {
     _lastPosition = position;
 
+    // ── Permanent block: once triggered, never lift until reset() ──
+    // Re-emit the existing blocked state so UI stays in sync.
+    if (_permanentlyBlocked) {
+      onStateChanged(_state);
+      return;
+    }
+
     // Feed into sub-services.
     _sampler.addSample(position);
     _movementAnalyzer.addRecord(position);
@@ -80,7 +90,7 @@ class SecurityManager {
     // ------ Collect all detections ------
     final detections = <DetectionResult>[];
 
-    // One-time initial checks (fake GPS apps, developer mode)
+    // One-time full check (fake GPS apps, developer mode, mock flag)
     if (!_initialChecksComplete) {
       try {
         final fakeGpsResults = await FakeGpsDetector.runAllChecks(position);
@@ -94,7 +104,14 @@ class SecurityManager {
         _initialChecksComplete = true;
       }
     } else {
-      // On subsequent updates just check mock location flag.
+      // On every subsequent update: re-check developer mode (user can enable
+      // it after the app opens) AND the mock location flag.
+      try {
+        final devMode = await FakeGpsDetector.checkDeveloperMode();
+        if (devMode != null) detections.add(devMode);
+      } catch (e) {
+        debugPrint('SecurityManager devMode re-check error: $e');
+      }
       final mock = FakeGpsDetector.checkMockLocation(position);
       if (mock != null) detections.add(mock);
     }
@@ -112,6 +129,12 @@ class SecurityManager {
       projectRadius: _projectRadius ?? 300,
       gpsAccuracy: position.accuracy,
     );
+
+    // Lock permanently once a block decision is made.
+    if (_state.action == SecurityAction.block) {
+      _permanentlyBlocked = true;
+      debugPrint('🔒 SecurityManager: PERMANENTLY BLOCKED — fake GPS detected.');
+    }
 
     onStateChanged(_state);
   }
@@ -166,6 +189,7 @@ class SecurityManager {
     _movementAnalyzer.reset();
     _state = SecurityState.initial();
     _initialChecksComplete = false;
+    _permanentlyBlocked = false;
     _deviceFingerprint = null;
     _lastPosition = null;
   }

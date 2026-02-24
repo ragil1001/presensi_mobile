@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
 import '../data/models/cs_cleaning_task_model.dart';
+import 'cs_network_image.dart';
 
 class CsPhotoStagingSheet extends StatefulWidget {
   final String title;
@@ -489,26 +489,12 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: CachedNetworkImage(
-            imageUrl: photo.url,
+          child: CsNetworkImage(
+            imagePath: photo.url,
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
-            placeholder: (_, __) => Container(
-              color: AppColors.surfaceVariant,
-              child: const Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  ),
-                ),
-              ),
-            ),
-            errorWidget: (_, __, ___) => Container(
+            errorWidget: Container(
               color: AppColors.surfaceVariant,
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,

@@ -65,18 +65,25 @@ class HomeMenuCard extends StatelessWidget {
               ),
             ),
             SizedBox(height: screenHeight * 0.007),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.005),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: labelSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+            SizedBox(
+              // Fixed height = 2 lines — prevents taller cards when text wraps
+              height: labelSize * 2.6,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.005),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: labelSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

@@ -66,7 +66,26 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
       return;
     }
 
-    // Check 3: Libur → langsung masuk tanpa cek waktu
+    // Check 3: Presensi sudah selesai (masuk + pulang keduanya sudah diisi)
+    final presensi = data.presensiHariIni;
+    if (presensi != null) {
+      final masukDone = presensi.waktuMasuk != null &&
+          presensi.waktuMasuk!.isNotEmpty &&
+          presensi.waktuMasuk != '-';
+      final pulangDone = presensi.waktuPulang != null &&
+          presensi.waktuPulang!.isNotEmpty &&
+          presensi.waktuPulang != '-';
+
+      if (masukDone && pulangDone) {
+        _showWarningDialog(
+          'Presensi Selesai',
+          'Anda sudah melakukan presensi masuk dan pulang hari ini.',
+        );
+        return;
+      }
+    }
+
+    // Check 4: Libur → langsung masuk tanpa cek waktu
     if (jadwal.isLibur) {
       await Navigator.pushNamed(context, '/absensi');
       if (mounted) {
@@ -264,44 +283,51 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
           ),
           Positioned.fill(
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _NavItem(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedHome01,
-                    color: widget.currentIndex == 0
-                        ? const Color(0xFFFF9800)
-                        : Colors.black87,
-                    size: navIconSize,
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => widget.onTabSelected?.call(0),
+                    child: _NavItem(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedHome01,
+                        color: widget.currentIndex == 0
+                            ? const Color(0xFFFF9800)
+                            : Colors.black87,
+                        size: navIconSize,
+                      ),
+                      label: "BERANDA",
+                      isActive: widget.currentIndex == 0,
+                      itemHeight: navItemHeight,
+                      activeFontSize: activeFontSize,
+                      inactiveFontSize: inactiveFontSize,
+                      iconBoxHeight: iconBoxHeight,
+                      labelBoxHeight: labelBoxHeight,
+                    ),
                   ),
-                  label: "BERANDA",
-                  isActive: widget.currentIndex == 0,
-                  onTap: () => widget.onTabSelected?.call(0),
-                  itemWidth: navItemWidth,
-                  itemHeight: navItemHeight,
-                  activeFontSize: activeFontSize,
-                  inactiveFontSize: inactiveFontSize,
-                  iconBoxHeight: iconBoxHeight,
-                  labelBoxHeight: labelBoxHeight,
                 ),
                 SizedBox(width: centerGap),
-                _NavItem(
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedGoogleDoc,
-                    color: widget.currentIndex == 1
-                        ? const Color(0xFFFF9800)
-                        : Colors.black87,
-                    size: navIconSize,
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => widget.onTabSelected?.call(1),
+                    child: _NavItem(
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedGoogleDoc,
+                        color: widget.currentIndex == 1
+                            ? const Color(0xFFFF9800)
+                            : Colors.black87,
+                        size: navIconSize,
+                      ),
+                      label: "RIWAYAT",
+                      isActive: widget.currentIndex == 1,
+                      itemHeight: navItemHeight,
+                      activeFontSize: activeFontSize,
+                      inactiveFontSize: inactiveFontSize,
+                      iconBoxHeight: iconBoxHeight,
+                      labelBoxHeight: labelBoxHeight,
+                    ),
                   ),
-                  label: "RIWAYAT",
-                  isActive: widget.currentIndex == 1,
-                  onTap: () => widget.onTabSelected?.call(1),
-                  itemWidth: navItemWidth,
-                  itemHeight: navItemHeight,
-                  activeFontSize: activeFontSize,
-                  inactiveFontSize: inactiveFontSize,
-                  iconBoxHeight: iconBoxHeight,
-                  labelBoxHeight: labelBoxHeight,
                 ),
               ],
             ),
@@ -316,8 +342,6 @@ class _NavItem extends StatelessWidget {
   final Widget icon;
   final String label;
   final bool isActive;
-  final VoidCallback? onTap;
-  final double itemWidth;
   final double itemHeight;
   final double activeFontSize;
   final double inactiveFontSize;
@@ -328,8 +352,6 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.isActive = false,
-    this.onTap,
-    required this.itemWidth,
     required this.itemHeight,
     required this.activeFontSize,
     required this.inactiveFontSize,
@@ -339,41 +361,37 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: itemWidth,
-        height: itemHeight,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: iconBoxHeight,
-              child: Center(child: icon),
-            ),
-            SizedBox(height: iconBoxHeight * 0.14),
-            SizedBox(
-              height: labelBoxHeight,
-              child: Center(
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  style: TextStyle(
-                    fontSize: isActive ? activeFontSize : inactiveFontSize,
-                    fontWeight: FontWeight.w700,
-                    color: isActive ? const Color(0xFFFF9800) : Colors.black87,
-                  ),
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.visible,
-                  ),
+    return SizedBox(
+      height: itemHeight,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            height: iconBoxHeight,
+            child: Center(child: icon),
+          ),
+          SizedBox(height: iconBoxHeight * 0.14),
+          SizedBox(
+            height: labelBoxHeight,
+            child: Center(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                style: TextStyle(
+                  fontSize: isActive ? activeFontSize : inactiveFontSize,
+                  fontWeight: FontWeight.w700,
+                  color: isActive ? const Color(0xFFFF9800) : Colors.black87,
+                ),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

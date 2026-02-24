@@ -380,20 +380,21 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   void _handlePresensiButton() {
     final isHariLibur = _presensiData?['is_hari_libur'] ?? false;
 
-    // Bypass radius check ONLY for jabatan excluded
+    // Always check fake GPS FIRST — no jabatan or holiday bypass for this.
+    if (_securityState.action == SecurityAction.block) {
+      _showFakeGpsBlockDialog();
+      return;
+    }
+
+    // Bypass ONLY the radius check for jabatan excluded.
     if (_isJabatanExcluded) {
-      debugPrint('🔓 Bypass radius check - Jabatan Excluded');
+      debugPrint('🔓 Bypass radius check — Jabatan Excluded');
       _navigateToSelfie();
       return;
     }
 
     if (isHariLibur) {
-      debugPrint('🏖️ Hari Libur - tetap cek radius');
-    }
-
-    if (_securityState.action == SecurityAction.block) {
-      _showFakeGpsBlockDialog();
-      return;
+      debugPrint('🏖️ Hari Libur — tetap cek radius');
     }
 
     if (_currentLatLng == null) {

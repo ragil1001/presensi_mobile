@@ -31,28 +31,32 @@ Future<KategoriIzin?> showKategoriDialog({
   final sisaFontSize = (screenWidth * 0.03).clamp(11.0, 12.0);
   final headerFontSize = (screenWidth * 0.045).clamp(16.0, 18.0);
 
+  // Use the root navigator so the dialog sits above the nav-bar overlay.
+  // SlideTransition moves an already-composited GPU layer (zero repaint);
+  // the old ScaleTransition was forcing a full repaint every frame.
   return showGeneralDialog<KategoriIzin>(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: true,
     barrierLabel: 'Kategori Izin',
     barrierColor: Colors.black.withValues(alpha: 0.4),
-    transitionDuration: const Duration(milliseconds: 250),
+    transitionDuration: const Duration(milliseconds: 200),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final slide = Tween<Offset>(
+        begin: const Offset(0.0, 0.06),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
       return FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.92, end: 1.0).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-          ),
-          child: child,
-        ),
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: SlideTransition(position: slide, child: child),
       );
     },
     pageBuilder: (context, animation, secondaryAnimation) {
       return Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
+        child: RepaintBoundary(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
             width: screenWidth * 0.88,
             constraints: BoxConstraints(
               maxWidth: 420,
@@ -251,11 +255,12 @@ Future<KategoriIzin?> showKategoriDialog({
                 ),
               ],
             ),
-          ),
-        ),
-      );
-    },
-  );
+          ),    // Container
+        ),      // Material
+      ),        // RepaintBoundary
+    );          // Center / return
+    },          // pageBuilder
+  );            // showGeneralDialog
 }
 
 /// Widget that displays the selected kategori and opens the selection dialog.

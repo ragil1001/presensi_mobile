@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
 import '../../../core/widgets/custom_snackbar.dart';
@@ -13,6 +12,7 @@ import '../providers/cs_task_provider.dart';
 import '../data/models/cs_cleaning_task_model.dart';
 import '../widgets/cs_fullscreen_image_viewer.dart';
 import '../widgets/cs_photo_staging_sheet.dart';
+import '../widgets/cs_network_image.dart';
 import '../utils/cs_date_formatter.dart';
 
 class CsTaskDetailPage extends StatefulWidget {
@@ -612,25 +612,10 @@ class _CsTaskDetailPageState extends State<CsTaskDetailPage> {
                           tag: heroTag,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: CachedNetworkImage(
-                              imageUrl: photo.url,
+                            child: CsNetworkImage(
+                              imagePath: photo.url,
                               fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
-                                color: AppColors.surfaceVariant,
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(
-                                              AppColors.primary),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              errorWidget: (_, __, ___) => Container(
+                              errorWidget: Container(
                                 color: AppColors.surfaceVariant,
                                 child: const Icon(
                                     Icons.broken_image_rounded,

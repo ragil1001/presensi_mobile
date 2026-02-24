@@ -32,14 +32,11 @@ class _CsMainPageState extends State<CsMainPage> {
           children: [
             _buildHeader(context, sw),
             Expanded(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [
-                  CsHomePage(onSwitchToTasks: () => _onTabChanged(1)),
-                  const CsTaskListPage(),
-                  const CsRiwayatPage(),
-                ],
-              ),
+              child: switch (_currentIndex) {
+                1 => const CsTaskListPage(),
+                2 => const CsRiwayatPage(),
+                _ => CsHomePage(onSwitchToTasks: () => _onTabChanged(1)),
+              },
             ),
           ],
         ),

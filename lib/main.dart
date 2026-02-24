@@ -184,8 +184,26 @@ class _MyAppState extends State<MyApp> {
     _setupFCM();
   }
 
-  void _setupFCM() {
-    // Foreground messages: show local notification + update badge
+  void _setupFCM() async {
+    // ── 1. Request permission (required on iOS + Android 13+) ────────────────
+    // Without this, push notifications are silently dropped on both platforms.
+    final settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    debugPrint('FCM permission: ${settings.authorizationStatus}');
+
+    // ── 2. iOS foreground presentation ───────────────────────────────────────
+    // By default iOS suppresses notifications while the app is in foreground.
+    // This makes them appear as banners even when the app is open.
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // ── 3. Foreground messages: show local notification + update badge ────────
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('FCM foreground message: ${message.notification?.title}');
       _showLocalNotification(message);
