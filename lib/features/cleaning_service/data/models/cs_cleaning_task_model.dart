@@ -114,6 +114,8 @@ class CleaningTask {
       afterPhotoCount: json['after_photo_count'] as int? ?? 0,
     );
   }
+
+  bool get isOptional => tipeJadwal == 'OPSIONAL';
 }
 
 class TaskDetail {

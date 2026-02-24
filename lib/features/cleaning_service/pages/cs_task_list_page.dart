@@ -20,13 +20,7 @@ class CsTaskListPage extends StatefulWidget {
 }
 
 class _CsTaskListPageState extends State<CsTaskListPage> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CsTaskProvider>().loadTasks();
-    });
-  }
+  // Removed initState; CsMainPage now handles data fetching for all tabs.
 
   Future<void> _handleAddArea() async {
     HapticFeedback.mediumImpact();
@@ -128,8 +122,9 @@ class _CsTaskListPageState extends State<CsTaskListPage> {
   }
 
   Future<void> _deleteSubArea(int areaId, TaskSubArea subArea) async {
-    final totalTasks = subArea.tasks.length;
-    final completedTasks = subArea.tasks.where((t) => t.isCompleted).length;
+    final mandatoryTasks = subArea.tasks.where((t) => !t.isOptional).toList();
+    final totalTasks = mandatoryTasks.length;
+    final completedTasks = mandatoryTasks.where((t) => t.isCompleted).length;
 
     final message = completedTasks > 0
         ? 'Hapus semua $totalTasks tugas di "${subArea.subArea}"? ($completedTasks sudah dikerjakan, semua progress dan foto akan hilang)'
@@ -575,6 +570,9 @@ class _CsTaskListPageState extends State<CsTaskListPage> {
                                         if (task.tipeJadwal == 'MONTHLY')
                                           _buildBadge('Monthly',
                                               const Color(0xFF7C3AED), sw),
+                                        if (task.isOptional)
+                                          _buildBadge('Opsional',
+                                              AppColors.warning, sw),
                                         if (task.tipeJadwal == null)
                                           _buildBadge('Fleksibel',
                                               AppColors.warning, sw),

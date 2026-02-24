@@ -28,6 +28,7 @@ import 'core/constants/app_routes.dart';
 import 'app/theme.dart';
 import 'app/router.dart';
 import 'features/auth/pages/login_page.dart';
+import 'core/utils/optimization_manager.dart'; // Import optimization manager
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -138,6 +139,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize optimization manager
+  await OptimizationManager.initialize();
 
   // Initialize local notifications
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');

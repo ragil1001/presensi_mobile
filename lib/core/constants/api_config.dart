@@ -10,4 +10,8 @@ class ApiConfig {
 
   // App version (update this on each release)
   static const String appVersion = '1.0.0';
+  
+  // Cache settings
+  static const int maxCacheSize = 5 * 1024 * 1024; // 5MB maksimum
+  static const int cacheRetentionDays = 7; // Hari retensi cache
 }

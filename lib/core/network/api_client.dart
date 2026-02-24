@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../constants/api_config.dart';
 import '../services/gps_security/device_integrity_checker.dart';
@@ -121,25 +122,25 @@ class ApiClient {
     return await _secureStorage.read(key: 'user_data');
   }
 
-  /// Save/read remember me preference
+  /// Save/read remember me preference using SharedPreferences to survive App Updates/KeyStore resets.
   Future<void> setRememberMe(bool value, String? username) async {
-    await _secureStorage.write(
-      key: 'remember_me',
-      value: value.toString(),
-    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('remember_me', value);
+    
     if (value && username != null) {
-      await _secureStorage.write(key: 'remembered_username', value: username);
+      await prefs.setString('remembered_username', username);
     } else {
-      await _secureStorage.delete(key: 'remembered_username');
+      await prefs.remove('remembered_username');
     }
   }
 
   Future<bool> getRememberMe() async {
-    final value = await _secureStorage.read(key: 'remember_me');
-    return value == 'true';
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('remember_me') ?? false;
   }
 
   Future<String?> getRememberedUsername() async {
-    return await _secureStorage.read(key: 'remembered_username');
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('remembered_username');
   }
 }

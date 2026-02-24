@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
+import '../providers/cs_beranda_provider.dart';
+import '../providers/cs_task_provider.dart';
 import 'cs_home_page.dart';
 import 'cs_task_list_page.dart';
 import 'cs_riwayat_page.dart';
@@ -15,6 +18,15 @@ class CsMainPage extends StatefulWidget {
 
 class _CsMainPageState extends State<CsMainPage> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CsBerandaProvider>().loadBeranda();
+      context.read<CsTaskProvider>().loadTasks();
+    });
+  }
 
   void _onTabChanged(int index) {
     setState(() => _currentIndex = index);

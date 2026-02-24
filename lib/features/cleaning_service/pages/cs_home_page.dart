@@ -21,13 +21,7 @@ class CsHomePage extends StatefulWidget {
 }
 
 class _CsHomePageState extends State<CsHomePage> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CsBerandaProvider>().loadBeranda();
-    });
-  }
+    // Removed initState; CsMainPage now handles data fetching for all tabs.
 
   List<CleaningTask> _getIncompleteTasks(CsTaskProvider taskProv) {
     final taskList = taskProv.taskList;
