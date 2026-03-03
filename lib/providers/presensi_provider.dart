@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http_parser/http_parser.dart';
@@ -274,11 +274,17 @@ class PresensiProvider with ChangeNotifier {
         'jadwal_id': jadwalId,
         'latitude': latitude,
         'longitude': longitude,
-        'foto': await MultipartFile.fromFile(
-          foto.path,
-          filename: fileName,
-          contentType: MediaType('image', 'jpeg'),
-        ),
+        'foto': kIsWeb
+            ? MultipartFile.fromBytes(
+                await foto.readAsBytes(),
+                filename: fileName,
+                contentType: MediaType('image', 'jpeg'),
+              )
+            : await MultipartFile.fromFile(
+                foto.path,
+                filename: fileName,
+                contentType: MediaType('image', 'jpeg'),
+              ),
         if (securityPayload != null) ...securityPayload.toFormFields(),
       });
 

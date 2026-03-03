@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:convert';
+import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/izin_provider.dart';
@@ -137,38 +140,48 @@ class LogoutHandler {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Initialize optimization manager
-  await OptimizationManager.initialize();
-
-  // Initialize local notifications
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const iosSettings = DarwinInitializationSettings();
-  const initSettings = InitializationSettings(
-    android: androidSettings,
-    iOS: iosSettings,
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  await flutterLocalNotificationsPlugin.initialize(
-    initSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse response) {
-      // Handle tap on local notification
-      if (response.payload != null) {
-        try {
-          final data = jsonDecode(response.payload!) as Map<String, dynamic>;
-          _handleFcmNavigation(data);
-        } catch (_) {}
-      }
-    },
-  );
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
 
-  // Create Android notification channel
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(_channel);
+  // Initialize optimization manager (mobile only - uses filesystem)
+  if (!kIsWeb) {
+    await OptimizationManager.initialize();
+  }
+
+  // Initialize local notifications (mobile only)
+  if (!kIsWeb) {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null) {
+          try {
+            final data =
+                jsonDecode(response.payload!) as Map<String, dynamic>;
+            _handleFcmNavigation(data);
+          } catch (_) {}
+        }
+      },
+    );
+
+    // Create Android notification channel
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_channel);
+  }
 
   await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
@@ -201,11 +214,14 @@ class _MyAppState extends State<MyApp> {
     // ── 2. iOS foreground presentation ───────────────────────────────────────
     // By default iOS suppresses notifications while the app is in foreground.
     // This makes them appear as banners even when the app is open.
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    if (!kIsWeb) {
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
 
     // ── 3. Foreground messages: show local notification + update badge ────────
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -249,6 +265,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _showLocalNotification(RemoteMessage message) {
+    if (kIsWeb) return; // Web uses browser's native notification
     final notification = message.notification;
     final android = notification?.android;
 
@@ -276,9 +293,18 @@ class _MyAppState extends State<MyApp> {
   void _updateFcmTokenOnServer(String token) async {
     try {
       final apiClient = ApiClient();
-      await apiClient.dio.post('/mobile/fcm-token', data: {
-        'fcm_token': token,
-      });
+      // Must use saved auth token — otherwise request hits 401 and token is never updated
+      final authToken = await apiClient.getToken();
+      if (authToken == null) {
+        debugPrint('FCM token refresh skipped: no auth token saved');
+        return;
+      }
+      await apiClient.dio.post(
+        '/mobile/fcm-token',
+        data: {'fcm_token': token},
+        options: Options(headers: {'Authorization': 'Bearer $authToken'}),
+      );
+      debugPrint('FCM token updated on server successfully');
     } catch (e) {
       debugPrint('Failed to update FCM token: $e');
     }

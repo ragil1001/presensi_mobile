@@ -1,16 +1,18 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class ImageOptimizer {
   /// Mengompresi gambar dengan pengaturan optimal untuk mengurangi ukuran file
   static Future<File?> compressImage(File file, {int quality = 70}) async {
+    if (kIsWeb) return null;
     try {
       // Menentukan dimensi maksimum berdasarkan kebutuhan aplikasi
       final maxWidth = 1024;
       final maxHeight = 768;
       
       final result = await FlutterImageCompress.compressWithFile(
-        file.absolute.path,
+        file.path,
         minWidth: maxWidth,
         minHeight: maxHeight,
         quality: quality, // Menggunakan kualitas 70 untuk keseimbangan antara ukuran dan kualitas

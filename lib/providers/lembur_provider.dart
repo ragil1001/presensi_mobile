@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../core/error/app_exception.dart';
@@ -170,10 +170,15 @@ class LemburProvider with ChangeNotifier {
         'jenis_lembur': jenisLembur,
         if (keterangan != null && keterangan.isNotEmpty)
           'keterangan': keterangan,
-        'file_skl': await MultipartFile.fromFile(
-          fileSkl.path,
-          filename: fileSkl.path.split('/').last,
-        ),
+        'file_skl': kIsWeb
+            ? MultipartFile.fromBytes(
+                await fileSkl.readAsBytes(),
+                filename: fileSkl.path.split('/').last,
+              )
+            : await MultipartFile.fromFile(
+                fileSkl.path,
+                filename: fileSkl.path.split('/').last,
+              ),
       });
 
       await _apiClient.dio.post(
@@ -224,10 +229,15 @@ class LemburProvider with ChangeNotifier {
       };
 
       if (fileSkl != null) {
-        map['file_skl'] = await MultipartFile.fromFile(
-          fileSkl.path,
-          filename: fileSkl.path.split('/').last,
-        );
+        map['file_skl'] = kIsWeb
+            ? MultipartFile.fromBytes(
+                await fileSkl.readAsBytes(),
+                filename: fileSkl.path.split('/').last,
+              )
+            : await MultipartFile.fromFile(
+                fileSkl.path,
+                filename: fileSkl.path.split('/').last,
+              );
       }
 
       final formData = FormData.fromMap(map);

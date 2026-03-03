@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../core/error/app_exception.dart';
@@ -211,10 +211,15 @@ class IzinProvider with ChangeNotifier {
             '${tanggalSelesai.year}-${tanggalSelesai.month.toString().padLeft(2, '0')}-${tanggalSelesai.day.toString().padLeft(2, '0')}',
         if (keterangan != null && keterangan.isNotEmpty)
           'keterangan': keterangan,
-        'file_pendukung': await MultipartFile.fromFile(
-          fileDokumen.path,
-          filename: fileDokumen.path.split('/').last,
-        ),
+        'file_pendukung': kIsWeb
+            ? MultipartFile.fromBytes(
+                await fileDokumen.readAsBytes(),
+                filename: fileDokumen.path.split('/').last,
+              )
+            : await MultipartFile.fromFile(
+                fileDokumen.path,
+                filename: fileDokumen.path.split('/').last,
+              ),
       });
 
       await _apiClient.dio.post(
@@ -265,10 +270,15 @@ class IzinProvider with ChangeNotifier {
       };
 
       if (fileDokumen != null) {
-        map['file_pendukung'] = await MultipartFile.fromFile(
-          fileDokumen.path,
-          filename: fileDokumen.path.split('/').last,
-        );
+        map['file_pendukung'] = kIsWeb
+            ? MultipartFile.fromBytes(
+                await fileDokumen.readAsBytes(),
+                filename: fileDokumen.path.split('/').last,
+              )
+            : await MultipartFile.fromFile(
+                fileDokumen.path,
+                filename: fileDokumen.path.split('/').last,
+              );
       }
 
       final formData = FormData.fromMap(map);

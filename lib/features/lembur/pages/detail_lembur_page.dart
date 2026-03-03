@@ -1,5 +1,6 @@
 // lib/pages/detail_lembur_page.dart
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/widgets/app_refresh_indicator.dart';
@@ -8,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../providers/lembur_provider.dart';
 import '../../../data/models/pengajuan_lembur_model.dart';
 import '../../../core/constants/app_colors.dart';
@@ -58,6 +60,15 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
   Future<void> _downloadAndOpenFile() async {
     if (_lembur?.fileSklUrl == null) {
       CustomSnackbar.showError(context, 'File tidak tersedia');
+      return;
+    }
+
+    if (kIsWeb) {
+      // On web, open file URL directly in browser
+      final url = Uri.parse(_lembur!.fileSklUrl!);
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
       return;
     }
 

@@ -2,7 +2,7 @@
 ///
 /// Collects hardware identifiers for the security payload.
 
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -35,7 +35,14 @@ class DeviceIntegrityChecker {
     bool isEmulator = false;
 
     try {
-      if (Platform.isAndroid) {
+      if (kIsWeb) {
+        final webInfo = await deviceInfo.webBrowserInfo;
+        deviceId = 'web_${webInfo.browserName.name}_${webInfo.appVersion?.hashCode ?? 0}';
+        deviceModel = webInfo.browserName.name;
+        deviceBrand = webInfo.platform ?? 'web';
+        osVersion = 'Web ${webInfo.appVersion ?? ''}';
+        isEmulator = false;
+      } else if (Platform.isAndroid) {
         final android = await deviceInfo.androidInfo;
         deviceId = android.id;
         deviceModel = android.model;
@@ -59,13 +66,15 @@ class DeviceIntegrityChecker {
 
     bool isRealDevice = true;
     bool isDeveloperMode = false;
-    try {
-      isRealDevice = await SafeDevice.isRealDevice;
-      if (Platform.isAndroid) {
-        isDeveloperMode = await SafeDevice.isDevelopmentModeEnable;
+    if (!kIsWeb) {
+      try {
+        isRealDevice = await SafeDevice.isRealDevice;
+        if (Platform.isAndroid) {
+          isDeveloperMode = await SafeDevice.isDevelopmentModeEnable;
+        }
+      } catch (e) {
+        debugPrint('DeviceIntegrityChecker SafeDevice error: $e');
       }
-    } catch (e) {
-      debugPrint('DeviceIntegrityChecker SafeDevice error: $e');
     }
 
     return DeviceFingerprint(

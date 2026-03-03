@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
@@ -116,10 +116,15 @@ class CsTaskProvider with ChangeNotifier, SafeChangeNotifier {
       for (final file in files) {
         formData.files.add(MapEntry(
           'fotos[]',
-          await MultipartFile.fromFile(
-            file.path,
-            filename: file.path.split(Platform.pathSeparator).last,
-          ),
+          kIsWeb
+              ? MultipartFile.fromBytes(
+                  await file.readAsBytes(),
+                  filename: file.path.split(Platform.pathSeparator).last,
+                )
+              : await MultipartFile.fromFile(
+                  file.path,
+                  filename: file.path.split(Platform.pathSeparator).last,
+                ),
         ));
       }
 

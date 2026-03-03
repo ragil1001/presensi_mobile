@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../app/router.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -16,6 +17,7 @@ import '../../../core/services/gps_security/security_manager.dart';
 import '../../../core/services/gps_security/models.dart';
 import '../../../providers/presensi_provider.dart';
 import 'selfie_page.dart';
+import 'selfie_page_web.dart';
 
 class AbsensiPage extends StatefulWidget {
   const AbsensiPage({super.key});
@@ -458,14 +460,23 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     await Navigator.push(
       context,
       AppPageRoute.to(
-        SelfiePage(
-          mode: mode,
-          jadwalId: jadwalId,
-          latitude: _currentLatLng!.latitude,
-          longitude: _currentLatLng!.longitude,
-          presensiToken: _presensiData?['presensi_token'] ?? '',
-          securityManager: _securityManager,
-        ),
+        kIsWeb
+            ? SelfiePageWeb(
+                mode: mode,
+                jadwalId: jadwalId,
+                latitude: _currentLatLng!.latitude,
+                longitude: _currentLatLng!.longitude,
+                presensiToken: _presensiData?['presensi_token'] ?? '',
+                securityManager: _securityManager,
+              )
+            : SelfiePage(
+                mode: mode,
+                jadwalId: jadwalId,
+                latitude: _currentLatLng!.latitude,
+                longitude: _currentLatLng!.longitude,
+                presensiToken: _presensiData?['presensi_token'] ?? '',
+                securityManager: _securityManager,
+              ),
         settings: const RouteSettings(name: '/selfie'),
       ),
     );

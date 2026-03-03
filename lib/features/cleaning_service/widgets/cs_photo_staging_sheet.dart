@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:presensi_mobile/core/platform/web_file.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -59,10 +61,11 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
   }
 
   Future<File?> _compressFile(File file) async {
+    if (kIsWeb) return file;
     try {
       final targetPath = '${file.path}_compressed.jpg';
       final result = await FlutterImageCompress.compressAndGetFile(
-        file.absolute.path,
+        file.path,
         targetPath,
         quality: 70,
         minWidth: 1920,
@@ -85,7 +88,10 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
       if (photo == null || !mounted) break;
 
       setState(() => _isCompressing = true);
-      final compressed = await _compressFile(File(photo.path));
+      final rawFile = kIsWeb
+          ? createFileFromBytes(photo.name, await photo.readAsBytes())
+          : File(photo.path);
+      final compressed = await _compressFile(rawFile);
       if (!mounted) return;
 
       if (compressed != null) {
@@ -142,7 +148,10 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
 
     setState(() => _isCompressing = true);
     for (final photo in photos) {
-      final compressed = await _compressFile(File(photo.path));
+      final rawFile = kIsWeb
+          ? createFileFromBytes(photo.name, await photo.readAsBytes())
+          : File(photo.path);
+      final compressed = await _compressFile(rawFile);
       if (compressed != null && mounted) {
         _stagedFiles.add(compressed);
       }
@@ -567,12 +576,19 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.file(
-              file,
-              width: 56,
-              height: 56,
-              fit: BoxFit.cover,
-            ),
+            child: kIsWeb
+                ? Image.memory(
+                    file.readAsBytesSync(),
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                  )
+                : Image.file(
+                    file as dynamic,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -325,7 +325,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                       borderRadius: BorderRadius.circular(sw * 0.03),
                       child: AspectRatio(
                         aspectRatio: 3 / 4,
-                        child: Image.file(File(imagePath), fit: BoxFit.cover),
+                        child: Image.file(File(imagePath) as dynamic, fit: BoxFit.cover),
                       ),
                     ),
                   ),

@@ -3,7 +3,7 @@
 /// Static utility class — stateless, all methods are independent checks
 /// that return [DetectionResult] when a threat is found.
 
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -39,7 +39,7 @@ class FakeGpsDetector {
 
   /// Developer mode enabled — score 100, critical.
   static Future<DetectionResult?> checkDeveloperMode() async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     try {
       final enabled = await SafeDevice.isDevelopmentModeEnable;
       if (enabled) {
@@ -71,7 +71,7 @@ class FakeGpsDetector {
 
   /// Known fake GPS apps installed — score 100, critical.
   static Future<DetectionResult?> checkFakeGpsApps() async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || !Platform.isAndroid) return null;
     try {
       for (final pkg in knownFakeGpsPackages) {
         final installed = await InstalledApps.isAppInstalled(pkg);

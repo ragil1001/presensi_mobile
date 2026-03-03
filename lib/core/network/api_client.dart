@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -60,7 +60,10 @@ class ApiClient {
 
     try {
       final deviceInfo = DeviceInfoPlugin();
-      if (Platform.isAndroid) {
+      if (kIsWeb) {
+        final webInfo = await deviceInfo.webBrowserInfo;
+        _deviceId = 'web_${webInfo.browserName.name}_${webInfo.appVersion?.hashCode ?? 0}';
+      } else if (Platform.isAndroid) {
         final android = await deviceInfo.androidInfo;
         _deviceId = android.id; // Unique Android ID
       } else if (Platform.isIOS) {
@@ -83,7 +86,10 @@ class ApiClient {
   Future<String> getDeviceName() async {
     try {
       final deviceInfo = DeviceInfoPlugin();
-      if (Platform.isAndroid) {
+      if (kIsWeb) {
+        final webInfo = await deviceInfo.webBrowserInfo;
+        return '${webInfo.browserName.name} (${webInfo.platform ?? 'Web'})';
+      } else if (Platform.isAndroid) {
         final android = await deviceInfo.androidInfo;
         return '${android.brand} ${android.model}';
       } else if (Platform.isIOS) {

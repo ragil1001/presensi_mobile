@@ -1,4 +1,6 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:presensi_mobile/core/platform/web_file.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -167,10 +169,14 @@ class IzinFileUploadSection extends StatelessWidget {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: kIsWeb,
       );
 
       if (result != null) {
-        final file = File(result.files.single.path!);
+        final platformFile = result.files.single;
+        final file = kIsWeb
+            ? createFileFromBytes(platformFile.name, platformFile.bytes!)
+            : File(platformFile.path!);
         final fileSize = await file.length();
 
         if (fileSize > 10 * 1024 * 1024) {
@@ -202,7 +208,9 @@ class IzinFileUploadSection extends StatelessWidget {
       );
 
       if (photo != null) {
-        final file = File(photo.path);
+        final file = kIsWeb
+            ? createFileFromBytes(photo.name, await photo.readAsBytes())
+            : File(photo.path);
         final fileSize = await file.length();
 
         if (fileSize > 10 * 1024 * 1024) {
