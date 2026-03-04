@@ -8,6 +8,7 @@ class PresensiData {
   final List<String> enabledIzinCategories;
   final List<String> enabledSubKategoriIzin;
   final bool hasCsAccess;
+  final bool hasPatrolAccess;
 
   PresensiData({
     required this.statistik,
@@ -19,6 +20,7 @@ class PresensiData {
     this.enabledIzinCategories = const [],
     this.enabledSubKategoriIzin = const [],
     this.hasCsAccess = false,
+    this.hasPatrolAccess = false,
   });
 
   factory PresensiData.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,7 @@ class PresensiData {
         json['enabled_sub_kategori_izin'],
       ),
       hasCsAccess: json['has_cs_access'] ?? false,
+      hasPatrolAccess: json['has_patrol_access'] ?? false,
     );
   }
 }

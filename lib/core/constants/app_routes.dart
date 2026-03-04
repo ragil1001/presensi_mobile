@@ -19,4 +19,10 @@ class AppRoutes {
   static const String csAreaSelection = '/cs/area-selection';
   static const String csTaskDetail = '/cs/task-detail';
   static const String csRiwayatDetail = '/cs/riwayat-detail';
+
+  // ─── Security Patrol ───────────────────────────────────────────
+  static const String patrolHome = '/patrol/home';
+  static const String patrolScan = '/patrol/scan';
+  static const String patrolReport = '/patrol/report';
+  static const String patrolHistoryDetail = '/patrol/history-detail';
 }

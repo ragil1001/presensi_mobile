@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 /// A menu card with an icon image and label, used in the home page grid.
 class HomeMenuCard extends StatelessWidget {
-  final String assetPath;
+  final String? assetPath;
+  final IconData? icon;
   final String label;
   final double screenWidth;
   final double screenHeight;
@@ -10,7 +11,8 @@ class HomeMenuCard extends StatelessWidget {
 
   const HomeMenuCard({
     super.key,
-    required this.assetPath,
+    this.assetPath,
+    this.icon,
     required this.label,
     required this.screenWidth,
     required this.screenHeight,
@@ -49,19 +51,25 @@ class HomeMenuCard extends StatelessWidget {
                 ],
               ),
               child: Center(
-                child: Image.asset(
-                  assetPath,
-                  width: iconSize,
-                  height: iconSize,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.image_not_supported,
-                      color: Colors.grey.shade400,
-                      size: iconSize * 0.6,
-                    );
-                  },
-                ),
+                child: assetPath != null
+                    ? Image.asset(
+                        assetPath!,
+                        width: iconSize,
+                        height: iconSize,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey.shade400,
+                            size: iconSize * 0.6,
+                          );
+                        },
+                      )
+                    : Icon(
+                        icon ?? Icons.apps,
+                        size: iconSize * 0.6,
+                        color: Colors.blueGrey.shade700,
+                      ),
               ),
             ),
             SizedBox(height: screenHeight * 0.007),

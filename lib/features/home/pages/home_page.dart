@@ -580,6 +580,24 @@ class _HomePageState extends State<HomePage>
                                             },
                                           ),
                                         ],
+                                        if (presensiData?.hasPatrolAccess == true) ...[
+                                          SizedBox(width: screenWidth * 0.04),
+                                          HomeMenuCard(
+                                            icon: Icons.security_rounded,
+                                            label: 'Patroli',
+                                            screenWidth: screenWidth,
+                                            screenHeight: screenHeight,
+                                            onTap: () async {
+                                              await Navigator.pushNamed(
+                                                context,
+                                                AppRoutes.patrolHome,
+                                              );
+                                              if (mounted) {
+                                                _refreshAllData();
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ],

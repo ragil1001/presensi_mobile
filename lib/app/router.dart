@@ -22,6 +22,10 @@ import '../features/cleaning_service/pages/cs_main_page.dart';
 import '../features/cleaning_service/pages/cs_area_selection_page.dart';
 import '../features/cleaning_service/pages/cs_task_detail_page.dart';
 import '../features/cleaning_service/pages/cs_riwayat_detail_page.dart';
+import '../features/patrol/pages/patrol_main_page.dart';
+import '../features/patrol/pages/patrol_scan_page.dart';
+import '../features/patrol/pages/patrol_report_page.dart';
+import '../features/patrol/pages/patrol_history_detail_page.dart';
 
 export '../features/home/pages/home_page.dart' show HomePage;
 export '../features/presensi/pages/data_absensi_page.dart' show DataAbsensiPage;
@@ -42,6 +46,9 @@ Map<String, WidgetBuilder> buildAppRoutes(Widget mainApp) {
     AppRoutes.informasi: (context) => const InformasiPage(),
     AppRoutes.csHome: (context) => const CsMainPage(),
     AppRoutes.csAreaSelection: (context) => const CsAreaSelectionPage(),
+    AppRoutes.patrolHome: (context) => const PatrolMainPage(),
+    AppRoutes.patrolScan: (context) => const PatrolScanPage(),
+    AppRoutes.patrolReport: (context) => const PatrolReportPage(),
   };
 }
 
@@ -99,6 +106,16 @@ Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     if (tanggal != null) {
       return _createOptimizedRoute(
         CsRiwayatDetailPage(tanggal: tanggal),
+        settings,
+      );
+    }
+  }
+
+  if (settings.name == AppRoutes.patrolHistoryDetail) {
+    final sessionId = settings.arguments as int?;
+    if (sessionId != null) {
+      return _createOptimizedRoute(
+        PatrolHistoryDetailPage(sessionId: sessionId),
         settings,
       );
     }

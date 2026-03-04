@@ -23,6 +23,9 @@ import 'features/cleaning_service/providers/cs_beranda_provider.dart';
 import 'features/cleaning_service/providers/cs_task_provider.dart';
 import 'features/cleaning_service/providers/cs_area_provider.dart';
 import 'features/cleaning_service/providers/cs_riwayat_provider.dart';
+import 'features/patrol/providers/patrol_session_provider.dart';
+import 'features/patrol/providers/patrol_scan_provider.dart';
+import 'features/patrol/providers/patrol_history_provider.dart';
 import 'core/network/error_interceptor.dart';
 import 'core/network/api_client.dart';
 import 'core/constants/app_colors.dart';
@@ -327,6 +330,9 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => CsTaskProvider()),
         ChangeNotifierProvider(create: (_) => CsAreaProvider()),
         ChangeNotifierProvider(create: (_) => CsRiwayatProvider()),
+        ChangeNotifierProvider(create: (_) => PatrolSessionProvider()),
+        ChangeNotifierProvider(create: (_) => PatrolScanProvider()),
+        ChangeNotifierProvider(create: (_) => PatrolHistoryProvider()),
       ],
       child: MaterialApp(
         navigatorKey: navigatorKey,
