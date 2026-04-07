@@ -6,6 +6,7 @@
 /// - stdDev < 0.3 m → suspiciously perfect (static fake GPS)
 /// - stdDev > 50 m  → too noisy (manipulation or broken GPS)
 /// - 0.3–50 m       → normal GPS jitter
+library;
 
 import 'dart:math';
 

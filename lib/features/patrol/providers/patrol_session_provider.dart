@@ -44,6 +44,30 @@ class PatrolSessionProvider with ChangeNotifier {
   int get scannedCount => _checkpoints.where((cp) => cp.sudahScan).length;
   int get totalCheckpoints => _checkpoints.where((cp) => cp.isAktif).length;
 
+  String _friendlyError(dynamic e, String fallback) {
+    if (e is DioException) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data?['errors'];
+        if (errors is Map) {
+          final first = (errors.values.first as List?)?.first;
+          if (first != null) return first.toString();
+        }
+      }
+      if (e.response?.data?['message'] != null) {
+        return e.response!.data['message'].toString();
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'Koneksi timeout. Periksa jaringan Anda.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'Tidak dapat terhubung ke server.';
+      }
+    }
+    return fallback;
+  }
+
   Future<void> loadConfigs() async {
     _isLoading = true;
     _error = null;
@@ -60,13 +84,13 @@ class PatrolSessionProvider with ChangeNotifier {
         if (data['active_session'] != null) {
           _activeSession = PatrolSession.fromJson(data['active_session']);
           await loadProgress(_activeSession!.id);
+        } else {
+          _activeSession = null;
+          _checkpoints = [];
         }
       }
-    } on DioException catch (e) {
-      _error = e.response?.data?['message']?.toString() ??
-          'Gagal memuat konfigurasi';
     } catch (e) {
-      _error = 'Terjadi kesalahan';
+      _error = _friendlyError(e, 'Gagal memuat konfigurasi. Silakan coba lagi.');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -94,11 +118,9 @@ class PatrolSessionProvider with ChangeNotifier {
         notifyListeners();
         return true;
       }
-    } on DioException catch (e) {
-      _error = e.response?.data?['message']?.toString() ??
-          'Gagal memulai patroli';
+      _error = data['message']?.toString() ?? 'Gagal memulai patroli.';
     } catch (e) {
-      _error = 'Terjadi kesalahan';
+      _error = _friendlyError(e, 'Gagal memulai patroli. Silakan coba lagi.');
     }
     _isStarting = false;
     notifyListeners();
@@ -121,11 +143,11 @@ class PatrolSessionProvider with ChangeNotifier {
         notifyListeners();
         return true;
       }
-    } on DioException catch (e) {
-      _error = e.response?.data?['message']?.toString() ??
-          'Gagal menyelesaikan patroli';
+      _error = response.data['message']?.toString() ??
+          'Gagal menyelesaikan patroli.';
     } catch (e) {
-      _error = 'Terjadi kesalahan';
+      _error =
+          _friendlyError(e, 'Gagal menyelesaikan patroli. Silakan coba lagi.');
     }
     _isEnding = false;
     notifyListeners();
@@ -148,11 +170,11 @@ class PatrolSessionProvider with ChangeNotifier {
         notifyListeners();
         return true;
       }
-    } on DioException catch (e) {
-      _error = e.response?.data?['message']?.toString() ??
-          'Gagal membatalkan patroli';
+      _error = response.data['message']?.toString() ??
+          'Gagal membatalkan patroli.';
     } catch (e) {
-      _error = 'Terjadi kesalahan';
+      _error =
+          _friendlyError(e, 'Gagal membatalkan patroli. Silakan coba lagi.');
     }
     _isEnding = false;
     notifyListeners();
@@ -193,5 +215,59 @@ class PatrolSessionProvider with ChangeNotifier {
     _isEnding = false;
     _error = null;
     notifyListeners();
+  }
+
+  /// Validate QR code locally against loaded checkpoint data.
+  /// Returns instantly without network call.
+  QrValidationResult validateQrCode(String qrCode) {
+    if (_activeSession == null || !_activeSession!.isBerlangsung) {
+      return QrValidationResult(false, 'Tidak ada sesi patroli aktif.');
+    }
+
+    // Find checkpoint matching this QR code
+    final matching = _checkpoints.where((cp) => cp.qrCode == qrCode).toList();
+    if (matching.isEmpty) {
+      return QrValidationResult(
+          false, 'QR Code tidak dikenali atau bukan milik konfigurasi ini.');
+    }
+
+    final checkpoint = matching.first;
+
+    if (!checkpoint.isAktif) {
+      return QrValidationResult(
+          false, 'Checkpoint "${checkpoint.nama}" sedang dinonaktifkan.');
+    }
+
+    // Resolve config
+    final config = _activeSession!.config ??
+        (_configs.isNotEmpty
+            ? _configs.firstWhere(
+                (c) => c.id == _activeSession!.configId,
+                orElse: () => _configs.first,
+              )
+            : null);
+
+    // Check duplicate scan (STRICT / CUSTOM modes)
+    if (config != null && !config.isFree && checkpoint.sudahScan) {
+      return QrValidationResult(false,
+          'Checkpoint "${checkpoint.nama}" sudah dipindai pada sesi ini.');
+    }
+
+    // Check order for STRICT mode
+    if (config != null && config.isStrict) {
+      final sorted = List<CheckpointProgress>.from(
+          _checkpoints.where((cp) => cp.isAktif))
+        ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+
+      for (final cp in sorted) {
+        if (cp.id == checkpoint.id) break;
+        if (cp.isWajib && !cp.sudahScan) {
+          return QrValidationResult(false,
+              'Pindai tidak sesuai urutan. Harap pindai "${cp.nama}" terlebih dahulu.');
+        }
+      }
+    }
+
+    return QrValidationResult(true, null, checkpoint);
   }
 }

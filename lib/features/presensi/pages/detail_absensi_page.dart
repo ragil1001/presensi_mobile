@@ -89,23 +89,6 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
     return kode;
   }
 
-  String _badgeShortLabel(String badge) {
-    switch (badge.toLowerCase()) {
-      case 'terlambat':
-        return 'T';
-      case 'pulang cepat':
-        return 'PC';
-      case 'lembur':
-        return 'L';
-      case 'lembur pending':
-        return 'LP';
-      case 'no pulang':
-        return 'NP';
-      default:
-        return badge;
-    }
-  }
-
   String _badgeFullLabel(String badge) {
     switch (badge.toLowerCase()) {
       case 'terlambat':
@@ -117,25 +100,10 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
       case 'lembur pending':
         return 'Lembur Pending';
       case 'no pulang':
-        return 'Belum Pulang';
+      case 'tidak presensi pulang':
+        return 'Tidak Presensi Pulang';
       default:
         return badge;
-    }
-  }
-
-  Color _badgeColor(String badge) {
-    switch (badge.toLowerCase()) {
-      case 'terlambat':
-        return AppColors.warning;
-      case 'pulang cepat':
-        return AppColors.info;
-      case 'lembur':
-      case 'lembur pending':
-        return Colors.purple;
-      case 'no pulang':
-        return AppColors.error;
-      default:
-        return AppColors.grey;
     }
   }
 
@@ -193,6 +161,7 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
                       context,
                       title: "Absen Masuk",
                       presensi: presensiMasuk,
+                      preferredTime: widget.data["masuk"] as String?,
                       color: AppColors.success,
                       icon: Icons.login,
                     ),
@@ -201,6 +170,7 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
                       context,
                       title: "Absen Pulang",
                       presensi: presensiPulang,
+                      preferredTime: widget.data["pulang"] as String?,
                       color: AppColors.primary,
                       icon: Icons.logout,
                     ),
@@ -620,6 +590,7 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
     BuildContext context, {
     required String title,
     required Map<String, dynamic>? presensi,
+    String? preferredTime,
     required Color color,
     required IconData icon,
   }) {
@@ -629,7 +600,11 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
     double? latitude;
     double? longitude;
 
-    if (presensi != null) {
+    if (preferredTime != null &&
+        preferredTime.isNotEmpty &&
+        preferredTime != '-') {
+      jam = preferredTime;
+    } else if (presensi != null) {
       if (presensi["waktu"] != null) {
         final waktu = presensi["waktu"] as String;
         try {

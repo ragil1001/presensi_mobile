@@ -151,7 +151,6 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
     final navIconSize = (screenWidth * 0.06).clamp(20.0, 27.0);
     final presensiLabelFontSize = (screenWidth * 0.03).clamp(10.0, 13.0);
     final presensiLabelSpacing = (screenHeight * 0.018).clamp(8.0, 32.0);
-    final navItemWidth = (screenWidth * 0.27).clamp(90.0, 120.0);
     final navItemHeight = (screenHeight * 0.078).clamp(55.0, 72.0);
     final centerGap = (screenWidth * 0.15).clamp(50.0, 70.0);
     final activeFontSize = (screenWidth * 0.037).clamp(12.0, 16.0);
@@ -175,6 +174,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
               notchDepth: notchDepth,
             ),
           ),
+
           Positioned(
             top: -centerButtonSize / 1.8,
             left: screenWidth / 2 - centerButtonSize / 2,

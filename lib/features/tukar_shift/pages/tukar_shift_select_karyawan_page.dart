@@ -30,6 +30,11 @@ class _TukarShiftSelectKaryawanPageState
   DateTime? _selectedDate;
 
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -416,7 +421,9 @@ class _TukarShiftSelectKaryawanPageState
 
                   if (provider.errorMessageKaryawan != null) {
                     return ErrorStateWidget(
-                      message: provider.errorMessageKaryawan ?? 'Gagal memuat data karyawan',
+                      message:
+                          provider.errorMessageKaryawan ??
+                          'Gagal memuat data karyawan',
                       onRetry: () => _loadKaryawan(),
                     );
                   }

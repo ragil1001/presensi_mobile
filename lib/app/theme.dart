@@ -30,7 +30,7 @@ class SmoothPageTransitionsBuilder extends PageTransitionsBuilder {
 ThemeData buildAppTheme() {
   return ThemeData(
     primaryColor: AppColors.primary,
-    scaffoldBackgroundColor: AppColors.white,
+    scaffoldBackgroundColor: Colors.white,
     fontFamily: 'Roboto',
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {

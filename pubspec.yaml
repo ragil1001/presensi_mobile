@@ -52,11 +52,11 @@ dependencies:
   installed_apps: ^1.4.0 # Detect installed fake GPS apps
   crypto: ^3.0.6 # HMAC-SHA256 for anti-tampering
   uuid: ^4.5.1 # Nonce generation
+  http_parser: ^4.1.0 # HTTP content type parsing
 
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.2
   flutter_local_notifications: ^19.4.2
-  device_preview: ^1.3.1
   image: ^4.5.4
 
   # QR Scanner for patrol
@@ -69,6 +69,7 @@ dev_dependencies:
   mockito: ^5.4.4
   build_runner: ^2.4.13
   fake_async: ^1.3.1
+  device_preview: ^1.3.1
 
 flutter:
   uses-material-design: true
@@ -82,3 +83,4 @@ flutter:
     - assets/jadwal.webp
     - assets/informasi.webp
     - assets/cs.webp
+    - assets/patroli.webp

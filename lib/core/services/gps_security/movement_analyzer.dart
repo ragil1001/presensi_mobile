@@ -4,6 +4,7 @@
 /// - Teleportation (calculated speed > 100 m/s)
 /// - Speed mismatch (reported vs calculated differ > 50 %)
 /// - Timestamp drift with large displacement
+library;
 
 import 'dart:math';
 

@@ -23,6 +23,7 @@
 /// | 21–40  | MEDIUM   | ALLOW  |
 /// | 41–60  | HIGH     | VERIFY |
 /// | 61+    | CRITICAL | BLOCK  |
+library;
 
 import 'models.dart';
 

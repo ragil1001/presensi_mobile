@@ -1,5 +1,4 @@
 import 'package:presensi_mobile/core/platform/platform_io.dart';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -10,7 +9,6 @@ import 'package:image/image.dart' as img;
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/gps_security/security_manager.dart';
-import '../../../core/services/gps_security/models.dart';
 import '../../../providers/presensi_provider.dart';
 import '../../../features/navigation/widgets/custom_presensi_dialog.dart';
 
@@ -94,7 +92,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
       _controller = CameraController(
         selectedCamera,
-        ResolutionPreset.medium,
+        ResolutionPreset.low,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
@@ -111,7 +109,8 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal menginisialisasi kamera. Pastikan izin kamera telah diberikan.';
+        _errorMessage =
+            'Gagal menginisialisasi kamera. Pastikan izin kamera telah diberikan.';
       });
     }
   }
@@ -119,8 +118,10 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
   Future<void> _getCurrentLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
 
       if (mounted) {
@@ -178,14 +179,9 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       // Ambil foto
       final image = await _controller!.takePicture();
 
-      // 🪞 Jika kamera depan → buat hasilnya mirror (flip horizontal)
+      // 🪞 Jika kamera depan → flip horizontal di background isolate (hemat RAM)
       if (_controller!.description.lensDirection == CameraLensDirection.front) {
-        final originalBytes = await File(image.path).readAsBytes();
-        final decoded = img.decodeImage(originalBytes);
-        if (decoded != null) {
-          final mirrored = img.flipHorizontal(decoded);
-          await File(image.path).writeAsBytes(img.encodeJpg(mirrored));
-        }
+        await compute(_mirrorImageIsolate, image.path);
       }
 
       if (!mounted) return;
@@ -205,11 +201,13 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         );
       } else {
         // User cancelled — cancel the pre-started futures by ignoring their results
-        compressionFuture.then((compressed) {
-          if (compressed.path != image.path) {
-            compressed.delete().catchError((_) {});
-          }
-        }).catchError((_) {});
+        compressionFuture
+            .then((compressed) {
+              if (compressed.path != image.path) {
+                compressed.delete().catchError((_) => compressed);
+              }
+            })
+            .catchError((_) {});
       }
     } catch (e) {
       if (mounted) {
@@ -248,10 +246,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
           backgroundColor: Colors.transparent,
           child: Container(
             width: sw * 0.85,
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: sh * 0.8,
-            ),
+            constraints: BoxConstraints(maxWidth: 400, maxHeight: sh * 0.8),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(borderRadius),
@@ -325,7 +320,11 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                       borderRadius: BorderRadius.circular(sw * 0.03),
                       child: AspectRatio(
                         aspectRatio: 3 / 4,
-                        child: Image.file(File(imagePath) as dynamic, fit: BoxFit.cover),
+                        child: Image.file(
+                          File(imagePath) as dynamic,
+                          fit: BoxFit.cover,
+                          cacheWidth: 720,
+                        ),
                       ),
                     ),
                   ),
@@ -349,12 +348,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
                 // Buttons
                 Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    padding,
-                    0,
-                    padding,
-                    padding,
-                  ),
+                  padding: EdgeInsets.fromLTRB(padding, 0, padding, padding),
                   child: Row(
                     children: [
                       Expanded(
@@ -371,9 +365,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                                 width: 1.5,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  sw * 0.03,
-                                ),
+                                borderRadius: BorderRadius.circular(sw * 0.03),
                               ),
                             ),
                           ),
@@ -392,9 +384,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  sw * 0.03,
-                                ),
+                                borderRadius: BorderRadius.circular(sw * 0.03),
                               ),
                             ),
                           ),
@@ -429,14 +419,18 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       final compressed = await (compressionFuture ?? _compressImage(imageFile));
 
       // 2. Use cached GPS position (already obtained before camera)
-      final position = _currentPosition ??
+      final position =
+          _currentPosition ??
           await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 5),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 5),
+            ),
           );
 
       // 3. Build security payload (HMAC-signed) — use pre-fetched deviceId
-      final deviceId = await (deviceIdFuture ?? ApiClient().getDeviceId()) ?? '';
+      final deviceId =
+          await (deviceIdFuture ?? ApiClient().getDeviceId()) ?? '';
       final securityPayload = widget.securityManager.buildPayload(
         presensiToken: widget.presensiToken,
         deviceId: deviceId,
@@ -448,6 +442,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       );
 
       // 4. Submit via PresensiProvider
+      if (!mounted) return;
       final provider = Provider.of<PresensiProvider>(context, listen: false);
       final result = await provider.submitPresensi(
         jenis: widget.mode.toUpperCase(),
@@ -549,10 +544,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
           backgroundColor: Colors.transparent,
           child: Container(
             width: sw * 0.85,
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: sh * 0.7,
-            ),
+            constraints: BoxConstraints(maxWidth: 400, maxHeight: sh * 0.7),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(borderRadius),
@@ -700,9 +692,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                sw * 0.03,
-                              ),
+                              borderRadius: BorderRadius.circular(sw * 0.03),
                             ),
                           ),
                           child: Text(
@@ -785,6 +775,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: _errorMessage != null
@@ -1002,4 +993,25 @@ List<int>? _compressImageIsolate(Map<String, dynamic> params) {
   }
 
   return img.encodeJpg(resized, quality: 60);
+}
+
+/// Top-level function for compute() isolate — mirror flip front camera image.
+/// Runs in separate memory space to prevent OOM on low-RAM devices.
+void _mirrorImageIsolate(String imagePath) {
+  final file = File(imagePath);
+  final originalBytes = file.readAsBytesSync();
+  final decoded = img.decodeImage(originalBytes);
+  if (decoded != null) {
+    // Resize first to reduce memory before flipping
+    img.Image small = decoded;
+    if (decoded.width > 800 || decoded.height > 800) {
+      small = img.copyResize(
+        decoded,
+        width: decoded.width > decoded.height ? 800 : null,
+        height: decoded.height >= decoded.width ? 800 : null,
+      );
+    }
+    final mirrored = img.flipHorizontal(small);
+    file.writeAsBytesSync(img.encodeJpg(mirrored, quality: 70));
+  }
 }

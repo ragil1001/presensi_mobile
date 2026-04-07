@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/constants/app_colors.dart';
 
 /// A widget that loads CS task photos through the backend proxy
-/// (GET /mobile/cs/foto?path=<filePath>).
+/// (GET /mobile/cs/foto?path=`<filePath>`).
 ///
 /// This avoids requiring the mobile device to have direct MinIO access.
 /// Uses the authenticated [ApiClient] so the request includes the Bearer token.
@@ -31,8 +32,11 @@ class CsNetworkImage extends StatefulWidget {
 }
 
 class _CsNetworkImageState extends State<CsNetworkImage> {
-  // Cache key to avoid re-loading when widget rebuilds with same path
-  static final _cache = <String, Uint8List>{};
+  // Cache memory dibatasi kecil untuk hemat RAM pada device low-end.
+  static const int _maxMemoryCacheBytes = 512 * 1024; // 512KB
+  static final LinkedHashMap<String, Uint8List> _cache =
+      LinkedHashMap<String, Uint8List>();
+  static int _currentMemoryCacheBytes = 0;
 
   final _apiClient = ApiClient();
   late Future<Uint8List> _loadFuture;
@@ -46,7 +50,10 @@ class _CsNetworkImageState extends State<CsNetworkImage> {
   Future<Uint8List> _load() async {
     // Return from cache if available
     if (_cache.containsKey(widget.imagePath)) {
-      return _cache[widget.imagePath]!;
+      final cached = _cache.remove(widget.imagePath)!;
+      // Reinsert to mark as most-recently-used.
+      _cache[widget.imagePath] = cached;
+      return cached;
     }
 
     final response = await _apiClient.dio.get(
@@ -56,8 +63,30 @@ class _CsNetworkImageState extends State<CsNetworkImage> {
     );
 
     final bytes = Uint8List.fromList(response.data as List<int>);
-    _cache[widget.imagePath] = bytes;
+    _remember(widget.imagePath, bytes);
     return bytes;
+  }
+
+  static void _remember(String key, Uint8List bytes) {
+    // Jika satu item sudah melebihi budget, jangan disimpan ke cache.
+    if (bytes.lengthInBytes > _maxMemoryCacheBytes) return;
+
+    final previous = _cache.remove(key);
+    if (previous != null) {
+      _currentMemoryCacheBytes -= previous.lengthInBytes;
+    }
+
+    _cache[key] = bytes;
+    _currentMemoryCacheBytes += bytes.lengthInBytes;
+
+    while (_currentMemoryCacheBytes > _maxMemoryCacheBytes &&
+        _cache.isNotEmpty) {
+      final oldestKey = _cache.keys.first;
+      final removed = _cache.remove(oldestKey);
+      if (removed != null) {
+        _currentMemoryCacheBytes -= removed.lengthInBytes;
+      }
+    }
   }
 
   @override

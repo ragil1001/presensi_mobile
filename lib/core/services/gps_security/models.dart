@@ -2,6 +2,7 @@
 ///
 /// Provides enums, value objects, and payload structures used across
 /// all security services (detector, sampler, analyzer, scorer, manager).
+library;
 
 enum RiskLevel { low, medium, high, critical }
 
@@ -198,7 +199,7 @@ class SecurityPayload {
     this.selfieTimestampMs,
   });
 
-  /// Flatten to Map<String, dynamic> for FormData submission.
+  /// Flatten to `Map<String, dynamic>` for FormData submission.
   Map<String, dynamic> toFormFields() => {
         'presensi_token': presensiToken,
         'nonce': nonce,

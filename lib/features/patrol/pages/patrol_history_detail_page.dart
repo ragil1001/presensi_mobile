@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
+import '../../../core/widgets/shimmer_loading.dart';
 import '../providers/patrol_history_provider.dart';
 import '../models/patrol_models.dart';
 import '../widgets/patrol_network_image.dart';
@@ -66,7 +67,7 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
     final padding = sw * 0.05;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -75,7 +76,26 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
               child: Consumer<PatrolHistoryProvider>(
                 builder: (context, provider, _) {
                   if (provider.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return ShimmerLoading(
+                      child: Padding(
+                        padding: EdgeInsets.all(padding),
+                        child: Column(
+                          children: [
+                            const ShimmerBox(height: 180, borderRadius: 14),
+                            const SizedBox(height: 16),
+                            const ShimmerBox(height: 20, width: 150),
+                            const SizedBox(height: 12),
+                            ...List.generate(
+                              3,
+                              (_) => const Padding(
+                                padding: EdgeInsets.only(bottom: 8),
+                                child: ShimmerBox(height: 100, borderRadius: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
 
                   if (provider.error != null) {
@@ -87,9 +107,16 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                               size: 48,
                               color: AppColors.error.withValues(alpha: 0.5)),
                           const SizedBox(height: 12),
-                          Text(provider.error!,
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              provider.error!,
+                              style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: AppFontSize.body(sw)),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           ElevatedButton(
                             onPressed: () => provider
@@ -109,10 +136,17 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
 
                   final session = provider.sessionDetail;
                   if (session == null) {
-                    return const Center(child: Text('Data tidak ditemukan'));
+                    return Center(
+                      child: Text('Data tidak ditemukan',
+                          style: TextStyle(
+                              color: AppColors.textTertiary,
+                              fontSize: AppFontSize.body(sw))),
+                    );
                   }
 
                   final scans = provider.scans;
+                  final scanCount = scans.where((s) => s.isQrScan).length;
+                  final laporanCount = scans.where((s) => !s.isQrScan).length;
 
                   return RefreshIndicator(
                     color: AppColors.primary,
@@ -121,25 +155,67 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                     child: ListView(
                       padding: EdgeInsets.all(padding),
                       children: [
-                        _buildSessionInfo(session, sw),
+                        _buildSessionInfo(session, scanCount, laporanCount, sw),
                         SizedBox(height: sw * 0.04),
-                        Text(
-                          'Timeline Scan (${scans.length})',
-                          style: TextStyle(
-                            fontSize: AppFontSize.body(sw),
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'Timeline',
+                              style: TextStyle(
+                                fontSize: AppFontSize.body(sw),
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$scanCount scan',
+                                style: TextStyle(
+                                    fontSize: AppFontSize.caption(sw),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.warning.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$laporanCount laporan',
+                                style: TextStyle(
+                                    fontSize: AppFontSize.caption(sw),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.warning),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         if (scans.isEmpty)
                           _buildEmptyScans(sw)
                         else
-                          ...scans
-                              .asMap()
-                              .entries
-                              .map((entry) => _buildScanCard(
-                                  entry.value, entry.key, scans.length, sw)),
+                          ...scans.asMap().entries.map(
+                                (entry) => _buildScanCard(
+                                  entry.value,
+                                  entry.key,
+                                  scans.length,
+                                  sw,
+                                  lokasiNama:
+                                      session.projectNama ?? session.configNama,
+                                ),
+                              ),
                         const SizedBox(height: 20),
                       ],
                     ),
@@ -153,12 +229,13 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
     );
   }
 
-  Widget _buildSessionInfo(PatrolSession session, double sw) {
+  Widget _buildSessionInfo(
+      PatrolSession session, int scanCount, int laporanCount, double sw) {
     final statusColor = session.isSelesai
         ? AppColors.success
         : session.isDibatalkan
             ? AppColors.error
-            : Colors.orange;
+            : AppColors.warning;
     final statusLabel = session.isSelesai
         ? 'SELESAI'
         : session.isDibatalkan
@@ -173,15 +250,15 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
         final diff = end.difference(start);
         final h = diff.inHours;
         final m = diff.inMinutes % 60;
-        durasi = h > 0 ? '${h}j ${m}m' : '${m} menit';
+        durasi = h > 0 ? '${h}j ${m}m' : '$m menit';
       }
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(AppFontSize.paddingH(sw)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(sw * 0.045),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -205,6 +282,7 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                   ),
                 ),
               ),
+              const SizedBox(width: 10),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -225,43 +303,33 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
           ),
           if (session.projectNama != null) ...[
             const SizedBox(height: 4),
-            Text(
-              session.projectNama!,
-              style: TextStyle(
-                fontSize: AppFontSize.small(sw),
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text(session.projectNama!,
+                style: TextStyle(
+                    fontSize: AppFontSize.small(sw),
+                    color: AppColors.textSecondary)),
           ],
           if (session.modeUrutan != null) ...[
             const SizedBox(height: 4),
-            Text(
-              'Mode: ${_modeLabel(session.modeUrutan!)}',
-              style: TextStyle(
-                fontSize: AppFontSize.small(sw),
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text('Mode: ${_modeLabel(session.modeUrutan!)}',
+                style: TextStyle(
+                    fontSize: AppFontSize.small(sw),
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600)),
           ],
           const Divider(height: 20),
-          _buildInfoRow(Icons.calendar_today, 'Tanggal', session.tanggal, sw),
+          _buildInfoRow(
+              Icons.calendar_today,
+              'Tanggal',
+              _formatTanggal(session.tanggal),
+              sw),
           const SizedBox(height: 6),
           if (session.waktuMulai != null)
-            _buildInfoRow(
-              Icons.play_circle_outline,
-              'Mulai',
-              _formatTime(session.waktuMulai!),
-              sw,
-            ),
+            _buildInfoRow(Icons.play_circle_outline, 'Mulai',
+                _formatTime(session.waktuMulai!), sw),
           if (session.waktuSelesai != null) ...[
             const SizedBox(height: 6),
-            _buildInfoRow(
-              Icons.stop_circle_outlined,
-              'Selesai',
-              _formatTime(session.waktuSelesai!),
-              sw,
-            ),
+            _buildInfoRow(Icons.stop_circle_outlined, 'Selesai',
+                _formatTime(session.waktuSelesai!), sw),
           ],
           if (durasi != null) ...[
             const SizedBox(height: 6),
@@ -269,11 +337,10 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
           ],
           const SizedBox(height: 6),
           _buildInfoRow(
-            Icons.qr_code_scanner,
-            'Total Scan',
-            '${session.totalCheckpointScan}',
-            sw,
-          ),
+              Icons.qr_code_scanner, 'Scan', '$scanCount', sw),
+          const SizedBox(height: 6),
+          _buildInfoRow(
+              Icons.description_outlined, 'Laporan', '$laporanCount', sw),
           if (session.catatan != null && session.catatan!.isNotEmpty) ...[
             const SizedBox(height: 6),
             _buildInfoRow(Icons.note, 'Catatan', session.catatan!, sw),
@@ -291,23 +358,17 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
         const SizedBox(width: 8),
         SizedBox(
           width: 80,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: AppFontSize.small(sw),
-              color: AppColors.textTertiary,
-            ),
-          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: AppFontSize.small(sw),
+                  color: AppColors.textTertiary)),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: AppFontSize.small(sw),
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          child: Text(value,
+              style: TextStyle(
+                  fontSize: AppFontSize.small(sw),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
         ),
       ],
     );
@@ -320,11 +381,12 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
         child: Column(
           children: [
             Icon(Icons.qr_code_scanner,
-                size: 48, color: Colors.grey.shade300),
+                size: 48,
+                color: AppColors.textTertiary.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
             Text('Belum ada scan',
                 style: TextStyle(
-                    color: Colors.grey.shade500,
+                    color: AppColors.textTertiary,
                     fontSize: AppFontSize.small(sw))),
           ],
         ),
@@ -332,17 +394,22 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
     );
   }
 
-  Widget _buildScanCard(PatrolScan scan, int index, int total, double sw) {
+  Widget _buildScanCard(
+    PatrolScan scan,
+    int index,
+    int total,
+    double sw, {
+    String? lokasiNama,
+  }) {
     final isQr = scan.isQrScan;
-    final iconColor = isQr ? AppColors.primary : Colors.orange;
+    final iconColor = isQr ? AppColors.primary : AppColors.warning;
     final iconData =
-        isQr ? Icons.qr_code_scanner : Icons.report_problem_rounded;
+        isQr ? Icons.qr_code_scanner : Icons.description_outlined;
     final typeLabel = isQr ? 'QR Scan' : 'Laporan Insidental';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Timeline line + dot
         SizedBox(
           width: 32,
           child: Column(
@@ -359,19 +426,18 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                 Container(
                   width: 2,
                   height: 120,
-                  color: Colors.grey.shade300,
+                  color: AppColors.textTertiary.withValues(alpha: 0.2),
                 ),
             ],
           ),
         ),
-        // Card
         Expanded(
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(AppFontSize.paddingH(sw)),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(sw * 0.035),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.03),
@@ -417,18 +483,23 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                                 color: AppColors.textTertiary,
                               ),
                             ),
+                          if (!isQr && lokasiNama != null)
+                            Text(
+                              lokasiNama,
+                              style: TextStyle(
+                                fontSize: AppFontSize.caption(sw),
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
                         ],
                       ),
                     ),
                     if (scan.waktuScan != null)
-                      Text(
-                        _formatTime(scan.waktuScan!),
-                        style: TextStyle(
-                          fontSize: AppFontSize.caption(sw),
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+                      Text(_formatTime(scan.waktuScan!),
+                          style: TextStyle(
+                              fontSize: AppFontSize.caption(sw),
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary)),
                   ],
                 ),
                 if (scan.deskripsi != null &&
@@ -438,44 +509,13 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      scan.deskripsi!,
-                      style: TextStyle(
-                        fontSize: AppFontSize.small(sw),
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-                if (scan.isGpsAnomali) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.warning_amber_rounded,
-                          size: 14, color: Colors.orange),
-                      const SizedBox(width: 4),
-                      Text(
-                        'GPS Anomali',
+                    child: Text(scan.deskripsi!,
                         style: TextStyle(
-                          fontSize: AppFontSize.caption(sw),
-                          fontWeight: FontWeight.w600,
-                          color: Colors.orange,
-                        ),
-                      ),
-                      if (scan.jarakDariCheckpoint != null) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '${scan.jarakDariCheckpoint!.toStringAsFixed(0)}m dari checkpoint',
-                          style: TextStyle(
-                            fontSize: AppFontSize.caption(sw),
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
-                      ],
-                    ],
+                            fontSize: AppFontSize.small(sw),
+                            color: AppColors.textSecondary)),
                   ),
                 ],
                 if (scan.fotos.isNotEmpty) ...[
@@ -490,7 +530,8 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
                         final foto = scan.fotos[i];
                         if (foto.filePath == null) return const SizedBox();
                         return GestureDetector(
-                          onTap: () => _showFullPhoto(context, foto.filePath!),
+                          onTap: () => _showPhotoGallery(
+                              context, scan.fotos, i),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: PatrolNetworkImage(
@@ -513,39 +554,98 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
     );
   }
 
-  void _showFullPhoto(BuildContext context, String filePath) {
+  /// Gallery: swipe horizontal between photos (infinite loop)
+  void _showPhotoGallery(
+      BuildContext context, List<PatrolFoto> fotos, int initialIndex) {
+    final validFotos = fotos.where((f) => f.filePath != null).toList();
+    if (validFotos.isEmpty) return;
+
+    // For infinite scroll, we use a large number and start from middle
+    final int realCount = validFotos.length;
+    final bool canSwipe = realCount > 1;
+    final int virtualCount = canSwipe ? realCount * 1000 : 1;
+    final int middleStart = canSwipe ? (virtualCount ~/ 2) - ((virtualCount ~/ 2) % realCount) + initialIndex : 0;
+    
+    final pageController = PageController(initialPage: middleStart);
+    int currentRealIndex = initialIndex;
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: Stack(
-          children: [
-            Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: PatrolNetworkImage(
-                  filePath: filePath,
-                  fit: BoxFit.contain,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: EdgeInsets.zero,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          child: SizedBox(
+            width: double.infinity,
+            height: double.infinity,
+            child: Stack(
+              children: [
+                PageView.builder(
+                  controller: pageController,
+                  itemCount: virtualCount,
+                  physics: canSwipe ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics(),
+                  onPageChanged: (i) {
+                    final realIndex = canSwipe ? i % realCount : 0;
+                    setDialogState(() => currentRealIndex = realIndex);
+                  },
+                  itemBuilder: (_, i) {
+                    final realIndex = canSwipe ? i % realCount : 0;
+                    return InteractiveViewer(
+                      child: Center(
+                        child: PatrolNetworkImage(
+                          filePath: validFotos[realIndex].filePath!,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
+                // Close button
+                Positioned(
+                  top: MediaQuery.of(ctx).padding.top + 8,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close,
+                          color: Colors.white, size: 24),
+                    ),
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 20),
                 ),
-              ),
+                // Page indicator
+                if (canSwipe)
+                  Positioned(
+                    bottom: MediaQuery.of(ctx).padding.bottom + 20,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${currentRealIndex + 1} / $realCount',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -554,7 +654,13 @@ class _PatrolHistoryDetailPageState extends State<PatrolHistoryDetailPage> {
   String _formatTime(String dateTimeStr) {
     final dt = DateTime.tryParse(dateTimeStr);
     if (dt == null) return dateTimeStr;
-    return DateFormat('HH:mm').format(dt);
+    return DateFormat('HH:mm').format(dt.toLocal());
+  }
+
+  String _formatTanggal(String dateTimeStr) {
+    final dt = DateTime.tryParse(dateTimeStr);
+    if (dt == null) return dateTimeStr;
+    return DateFormat('EEEE, d MMMM yyyy', 'id').format(dt.toLocal());
   }
 
   String _modeLabel(String mode) {

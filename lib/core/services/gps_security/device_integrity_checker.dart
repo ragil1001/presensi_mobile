@@ -1,6 +1,7 @@
 /// Layer 6: Device fingerprint collection.
 ///
 /// Collects hardware identifiers for the security payload.
+library;
 
 import 'package:presensi_mobile/core/platform/platform_io.dart';
 

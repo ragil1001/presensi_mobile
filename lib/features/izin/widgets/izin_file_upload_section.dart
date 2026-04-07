@@ -3,8 +3,8 @@ import 'package:presensi_mobile/core/platform/web_file.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/in_app_camera_page.dart';
 
 /// File upload section widget for the izin/lembur form, showing either an upload
 /// button or the selected file info with a remove button.
@@ -19,6 +19,8 @@ class IzinFileUploadSection extends StatelessWidget {
   final String? kategoriLabel;
   final ValueChanged<File?> onFileSelected;
   final VoidCallback onRemoveFile;
+  final String filePrefix;
+  final String cameraTitle;
 
   const IzinFileUploadSection({
     super.key,
@@ -31,6 +33,8 @@ class IzinFileUploadSection extends StatelessWidget {
     required this.kategoriLabel,
     required this.onFileSelected,
     required this.onRemoveFile,
+    this.filePrefix = 'doc_izin',
+    this.cameraTitle = 'Ambil Foto Dokumen',
   });
 
   void _showPickerOptions(BuildContext context) {
@@ -198,20 +202,53 @@ class IzinFileUploadSection extends StatelessWidget {
   }
 
   Future<void> _takePhoto(BuildContext context) async {
+    // Use in-app camera for mobile, fallback to image_picker for web
+    if (kIsWeb) {
+      // Web doesn't support in-app camera, use file picker with camera source
+      try {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
+        );
+
+        if (result != null) {
+          final platformFile = result.files.single;
+          final file = createFileFromBytes(platformFile.name, platformFile.bytes!);
+          final fileSize = await file.length();
+
+          if (fileSize > 10 * 1024 * 1024) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ukuran foto maksimal 10MB')),
+            );
+            return;
+          }
+
+          onFileSelected(file);
+        }
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengambil foto: $e')),
+        );
+      }
+      return;
+    }
+
+    // Mobile: use in-app camera
     try {
-      final picker = ImagePicker();
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+      final File? photo = await InAppCameraPage.capture(
+        context,
+        title: cameraTitle,
+        useFrontCamera: false,
+        quality: 60,
+        minWidth: 720,
+        minHeight: 720,
+        filePrefix: filePrefix,
       );
 
       if (photo != null) {
-        final file = kIsWeb
-            ? createFileFromBytes(photo.name, await photo.readAsBytes())
-            : File(photo.path);
-        final fileSize = await file.length();
+        final fileSize = await photo.length();
 
         if (fileSize > 10 * 1024 * 1024) {
           if (!context.mounted) return;
@@ -221,7 +258,7 @@ class IzinFileUploadSection extends StatelessWidget {
           return;
         }
 
-        onFileSelected(file);
+        onFileSelected(photo);
       }
     } catch (e) {
       if (!context.mounted) return;

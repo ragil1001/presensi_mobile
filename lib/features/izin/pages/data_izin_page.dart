@@ -216,50 +216,6 @@ class _DataIzinPageState extends State<DataIzinPage> {
             return Column(
               children: [
                 _buildHeader(context, screenWidth, screenHeight, padding),
-                if (_filter != "Semua")
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.filter_alt,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _filter == "Custom" && _customRange != null
-                                ? 'Filter: ${DateFormat('dd MMM yyyy', 'id_ID').format(_customRange!.start)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(_customRange!.end)}'
-                                : 'Filter: $_filter',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            size: 20,
-                            color: AppColors.primary,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _filter = "Semua";
-                              _customRange = null;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
                 Expanded(
                   child: filteredList.isEmpty
                       ? AppRefreshIndicator(

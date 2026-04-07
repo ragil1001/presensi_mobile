@@ -6,7 +6,7 @@ import '../constants/app_colors.dart';
 ///
 /// Usage:
 /// ```dart
-/// final result = await CustomDropdownDialog.show<String>(
+/// final result = await CustomDropdownDialog.show&lt;String&gt;(
 ///   context: context,
 ///   title: 'Pilih Periode',
 ///   items: ['Januari', 'Februari', 'Maret'],

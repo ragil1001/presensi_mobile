@@ -1,5 +1,5 @@
 import 'package:presensi_mobile/core/platform/platform_io.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class ImageOptimizer {
@@ -8,14 +8,14 @@ class ImageOptimizer {
     if (kIsWeb) return null;
     try {
       // Menentukan dimensi maksimum berdasarkan kebutuhan aplikasi
-      final maxWidth = 1024;
-      final maxHeight = 768;
+      final maxWidth = 640;
+      final maxHeight = 480;
       
       final result = await FlutterImageCompress.compressWithFile(
         file.path,
         minWidth: maxWidth,
         minHeight: maxHeight,
-        quality: quality, // Menggunakan kualitas 70 untuk keseimbangan antara ukuran dan kualitas
+        quality: quality,
         rotate: 0,
       );
       
@@ -28,7 +28,7 @@ class ImageOptimizer {
       
       return null;
     } catch (e) {
-      print('Error compressing image: $e');
+      debugPrint('Error compressing image: $e');
       return null;
     }
   }

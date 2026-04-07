@@ -51,6 +51,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
+        android:extractNativeLibs="false"
         android:requestLegacyExternalStorage="true"
         android:largeHeap="true"
         android:hardwareAccelerated="true">

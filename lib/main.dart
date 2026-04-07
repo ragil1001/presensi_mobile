@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
@@ -28,9 +29,11 @@ import 'features/patrol/providers/patrol_scan_provider.dart';
 import 'features/patrol/providers/patrol_history_provider.dart';
 import 'core/network/error_interceptor.dart';
 import 'core/network/api_client.dart';
+import 'core/constants/api_config.dart';
 import 'core/constants/app_colors.dart';
 import 'core/widgets/connectivity_banner.dart';
 import 'core/constants/app_routes.dart';
+import 'core/utils/safe_image_picker.dart';
 import 'app/theme.dart';
 import 'app/router.dart';
 import 'features/auth/pages/login_page.dart';
@@ -81,8 +84,10 @@ void _handleFcmNavigation(Map<String, dynamic> data) {
     case 'tukar_shift_dibatalkan':
       final tukarShiftId = int.tryParse(data['tukar_shift_id'] ?? '');
       if (tukarShiftId != null) {
-        navigator.pushNamed(AppRoutes.detailTukarShift,
-            arguments: tukarShiftId);
+        navigator.pushNamed(
+          AppRoutes.detailTukarShift,
+          arguments: tukarShiftId,
+        );
       }
       break;
     case 'presensi_alpa':
@@ -90,8 +95,10 @@ void _handleFcmNavigation(Map<String, dynamic> data) {
     case 'presensi_diupdate':
       final tanggal = data['tanggal'] ?? '';
       if (tanggal.isNotEmpty) {
-        navigator.pushNamed(AppRoutes.historyAbsensi,
-            arguments: {'tanggal': tanggal});
+        navigator.pushNamed(
+          AppRoutes.historyAbsensi,
+          arguments: {'tanggal': tanggal},
+        );
       }
       break;
     case 'informasi_baru':
@@ -143,9 +150,18 @@ class LogoutHandler {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  if (!kIsWeb) {
+    // Batasi image cache bawaan Flutter agar penggunaan RAM lebih hemat.
+    PaintingBinding.instance.imageCache
+      ..maximumSize = 20
+      ..maximumSizeBytes = ApiConfig.maxCacheSize;
+
+    // Pulihkan hasil kamera jika proses app sempat di-kill saat intent kamera aktif.
+    await SafeImagePicker.initialize();
+  }
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (!kIsWeb) {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -158,8 +174,9 @@ Future<void> main() async {
 
   // Initialize local notifications (mobile only)
   if (!kIsWeb) {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings();
     const initSettings = InitializationSettings(
       android: androidSettings,
@@ -171,8 +188,7 @@ Future<void> main() async {
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         if (response.payload != null) {
           try {
-            final data =
-                jsonDecode(response.payload!) as Map<String, dynamic>;
+            final data = jsonDecode(response.payload!) as Map<String, dynamic>;
             _handleFcmNavigation(data);
           } catch (_) {}
         }
@@ -182,12 +198,34 @@ Future<void> main() async {
     // Create Android notification channel
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
   }
 
   await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
+}
+
+List<SingleChildWidget> buildAppProviders() {
+  return [
+    ChangeNotifierProvider(create: (_) => AuthProvider()),
+    ChangeNotifierProvider(create: (_) => IzinProvider()),
+    ChangeNotifierProvider(create: (_) => PresensiProvider()),
+    ChangeNotifierProvider(create: (_) => JadwalProvider()),
+    ChangeNotifierProvider(create: (_) => TukarShiftProvider()),
+    ChangeNotifierProvider(create: (_) => LemburProvider()),
+    ChangeNotifierProvider(create: (_) => NotificationProvider()),
+    ChangeNotifierProvider(create: (_) => InformasiProvider()),
+    ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+    ChangeNotifierProvider(create: (_) => CsBerandaProvider()),
+    ChangeNotifierProvider(create: (_) => CsTaskProvider()),
+    ChangeNotifierProvider(create: (_) => CsAreaProvider()),
+    ChangeNotifierProvider(create: (_) => CsRiwayatProvider()),
+    ChangeNotifierProvider(create: (_) => PatrolSessionProvider()),
+    ChangeNotifierProvider(create: (_) => PatrolScanProvider()),
+    ChangeNotifierProvider(create: (_) => PatrolHistoryProvider()),
+  ];
 }
 
 class MyApp extends StatefulWidget {
@@ -220,10 +258,10 @@ class _MyAppState extends State<MyApp> {
     if (!kIsWeb) {
       await FirebaseMessaging.instance
           .setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+            alert: true,
+            badge: true,
+            sound: true,
+          );
     }
 
     // ── 3. Foreground messages: show local notification + update badge ────────
@@ -316,24 +354,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => IzinProvider()),
-        ChangeNotifierProvider(create: (_) => PresensiProvider()),
-        ChangeNotifierProvider(create: (_) => JadwalProvider()),
-        ChangeNotifierProvider(create: (_) => TukarShiftProvider()),
-        ChangeNotifierProvider(create: (_) => LemburProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => InformasiProvider()),
-        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
-        ChangeNotifierProvider(create: (_) => CsBerandaProvider()),
-        ChangeNotifierProvider(create: (_) => CsTaskProvider()),
-        ChangeNotifierProvider(create: (_) => CsAreaProvider()),
-        ChangeNotifierProvider(create: (_) => CsRiwayatProvider()),
-        ChangeNotifierProvider(create: (_) => PatrolSessionProvider()),
-        ChangeNotifierProvider(create: (_) => PatrolScanProvider()),
-        ChangeNotifierProvider(create: (_) => PatrolHistoryProvider()),
-      ],
+      providers: buildAppProviders(),
       child: MaterialApp(
         navigatorKey: navigatorKey,
         title: 'PresensiQMS',
@@ -416,11 +437,9 @@ class _SplashScreenState extends State<SplashScreen>
               const MainApp(),
           transitionDuration: const Duration(milliseconds: 300),
           reverseTransitionDuration: const Duration(milliseconds: 200),
-          transitionsBuilder:
-              (context, animation, secondaryAnimation, child) {
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
-              opacity:
-                  CurveTween(curve: Curves.easeInOut).animate(animation),
+              opacity: CurveTween(curve: Curves.easeInOut).animate(animation),
               child: child,
             );
           },
@@ -702,33 +721,46 @@ class _MainAppState extends State<MainApp>
     }
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          const ConnectivityBanner(),
-          Expanded(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [
-                  HomePage(isForceLoading: _isLoadingBeranda),
-                  DataAbsensiPage(isForceLoading: _isLoadingRiwayat),
-                ],
+          // CONTENT
+          Column(
+            children: [
+              const ConnectivityBanner(),
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      HomePage(isForceLoading: _isLoadingBeranda),
+                      DataAbsensiPage(isForceLoading: _isLoadingRiwayat),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // NAVBAR OVERLAY (tidak pakai bottomNavigationBar)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: CustomBottomNavBar(
+                currentIndex: _currentIndex,
+                onTabSelected: _onTabTapped,
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: CustomBottomNavBar(
-          currentIndex: _currentIndex,
-          onTabSelected: _onTabTapped,
-        ),
-      ),
     );
   }
+
 }

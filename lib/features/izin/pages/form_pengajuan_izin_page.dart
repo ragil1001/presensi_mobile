@@ -143,15 +143,24 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     }
   }
 
-  /// Whether the end date is auto-calculated
+  /// Whether the end date is auto-calculated based on jumlah hari.
   bool get _hasAutoEndDate {
     if (_selectedKategori == null) return false;
     if (_selectedKategori!.hasSubKategori) {
       return _selectedSubKategori != null &&
           _selectedSubKategori!.durasiHari > 0;
     }
-    return _selectedKategori!.jumlahHari != null &&
-        _selectedKategori!.jumlahHari! > 0;
+    final jumlahHari = _selectedKategori!.jumlahHari;
+    return jumlahHari != null && jumlahHari > 0;
+  }
+
+  String? get _autoEndDateNote {
+    if (!_hasAutoEndDate) return null;
+    if (_selectedKategori?.hasSubKategori == true &&
+        _selectedSubKategori != null) {
+      return 'Tanggal selesai otomatis berdasarkan jumlah hari pada jenis izin ini';
+    }
+    return 'Tanggal selesai otomatis berdasarkan jumlah hari pada kategori ini';
   }
 
   void _calculateTanggalSelesai() {
@@ -221,10 +230,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
 
     // File is mandatory for new submissions
     if (!_isEditMode && _selectedFile == null) {
-      CustomSnackbar.showWarning(
-        context,
-        'Dokumen pendukung wajib diupload',
-      );
+      CustomSnackbar.showWarning(context, 'Dokumen pendukung wajib diupload');
       return;
     }
 
@@ -321,7 +327,10 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         _isSubmitting = false;
       });
 
-      CustomSnackbar.showError(context, 'Terjadi kesalahan. Silakan coba lagi.');
+      CustomSnackbar.showError(
+        context,
+        'Terjadi kesalahan. Silakan coba lagi.',
+      );
     }
   }
 
@@ -494,8 +503,6 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                                 _selectedKategori = selected;
                                 _selectedSubKategori = null;
                                 _tanggalSelesai = null;
-                                _selectedFile =
-                                    _isEditMode ? _selectedFile : null;
                               });
                             }
                           },
@@ -553,6 +560,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                           tanggalSelesai: _tanggalSelesai,
                           isSubmitting: _isSubmitting,
                           isTanggalSelesaiEditable: _isTanggalSelesaiEditable,
+                          autoEndDateNote: _autoEndDateNote,
                           onPickTanggalMulai: () => _pickDate(true),
                           onPickTanggalSelesai: () => _pickDate(false),
                         ),
@@ -598,8 +606,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                             ),
                             filled: true,
                             fillColor: Colors.grey.shade50,
-                            contentPadding:
-                                EdgeInsets.all(screenWidth * 0.035),
+                            contentPadding: EdgeInsets.all(screenWidth * 0.035),
                           ),
                           style: TextStyle(fontSize: inputFontSize),
                         ),
@@ -619,8 +626,9 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                             widget.editData!.hasFile)
                           Container(
                             padding: EdgeInsets.all(screenWidth * 0.03),
-                            margin:
-                                EdgeInsets.only(bottom: screenHeight * 0.01),
+                            margin: EdgeInsets.only(
+                              bottom: screenHeight * 0.01,
+                            ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               color: Colors.grey.shade100,
@@ -638,8 +646,10 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                                   child: Text(
                                     'File dokumen sudah ada. Upload baru untuk mengganti.',
                                     style: TextStyle(
-                                      fontSize: (screenWidth * 0.032)
-                                          .clamp(12.0, 13.0),
+                                      fontSize: (screenWidth * 0.032).clamp(
+                                        12.0,
+                                        13.0,
+                                      ),
                                       color: Colors.grey.shade700,
                                     ),
                                   ),
@@ -665,8 +675,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
 
                         // Submit Button
                         ElevatedButton(
-                          onPressed:
-                              _isSubmitting ? null : _confirmAndSubmit,
+                          onPressed: _isSubmitting ? null : _confirmAndSubmit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -685,12 +694,10 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                                     18.0,
                                     20.0,
                                   ),
-                                  width:
-                                      (screenWidth * 0.05).clamp(18.0, 20.0),
+                                  width: (screenWidth * 0.05).clamp(18.0, 20.0),
                                   child: const CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor:
-                                        AlwaysStoppedAnimation<Color>(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
                                       Colors.white,
                                     ),
                                   ),

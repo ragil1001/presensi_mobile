@@ -2,6 +2,7 @@
 ///
 /// Static utility class — stateless, all methods are independent checks
 /// that return [DetectionResult] when a threat is found.
+library;
 
 import 'package:presensi_mobile/core/platform/platform_io.dart';
 

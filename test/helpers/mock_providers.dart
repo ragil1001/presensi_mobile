@@ -1,5 +1,3 @@
-import 'package:flutter_test/flutter_test.dart';
-
 /// Simple mock for testing without full Riverpod setup
 class MockApiResponse<T> {
   final T? data;

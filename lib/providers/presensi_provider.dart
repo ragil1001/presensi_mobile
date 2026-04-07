@@ -27,6 +27,8 @@ class PresensiProvider with ChangeNotifier {
   int _historyPage = 1;
   int _historyTotal = 0;
   String _historyFilter = 'semua';
+  String? _historyStartDate;
+  String? _historyEndDate;
   Map<String, dynamic> _historyKaryawan = {};
   Map<String, dynamic> _historyProject = {};
 
@@ -168,11 +170,19 @@ class PresensiProvider with ChangeNotifier {
   }) async {
     if (_isLoadingHistory && !refresh) return;
 
-    if (refresh || filter != _historyFilter) {
+    final shouldReset = refresh || filter != _historyFilter;
+    if (shouldReset) {
       _historyItems = [];
       _historyPage = 1;
       _historyHasMore = false;
       _historyFilter = filter;
+    }
+    if (shouldReset) {
+      _historyStartDate = startDate;
+      _historyEndDate = endDate;
+    } else {
+      _historyStartDate = startDate ?? _historyStartDate;
+      _historyEndDate = endDate ?? _historyEndDate;
     }
 
     _isLoadingHistory = true;
@@ -185,10 +195,12 @@ class PresensiProvider with ChangeNotifier {
         'page': _historyPage,
         'per_page': 20,
       };
-      if (startDate != null) params['start_date'] = startDate;
-      if (endDate != null) params['end_date'] = endDate;
+      final start = startDate ?? _historyStartDate;
+      final end = endDate ?? _historyEndDate;
+      if (start != null) params['start_date'] = start;
+      if (end != null) params['end_date'] = end;
 
-      debugPrint('[History] Loading page=${_historyPage} filter=$filter');
+      debugPrint('[History] Loading page=$_historyPage filter=$filter');
       final response = await _apiClient.dio.get(
         '/mobile/history-presensi',
         queryParameters: params,
@@ -230,7 +242,11 @@ class PresensiProvider with ChangeNotifier {
 
   Future<void> loadMoreHistory() async {
     if (!_historyHasMore || _isLoadingHistory) return;
-    await loadHistoryPresensi(filter: _historyFilter);
+    await loadHistoryPresensi(
+      filter: _historyFilter,
+      startDate: _historyStartDate,
+      endDate: _historyEndDate,
+    );
   }
 
   // ── Cek Presensi ──

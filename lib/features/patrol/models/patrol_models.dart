@@ -62,6 +62,8 @@ class PatrolSession {
   final int totalCheckpointScan;
   final String? catatan;
   final int? scansCount;
+  final int? scanCount;
+  final int? laporanCount;
   final PatrolConfig? config;
 
   PatrolSession({
@@ -77,6 +79,8 @@ class PatrolSession {
     this.totalCheckpointScan = 0,
     this.catatan,
     this.scansCount,
+    this.scanCount,
+    this.laporanCount,
     this.config,
   });
 
@@ -97,6 +101,8 @@ class PatrolSession {
       totalCheckpointScan: json['total_checkpoint_scan'] ?? 0,
       catatan: json['catatan'],
       scansCount: json['scans_count'],
+      scanCount: json['scan_count'],
+      laporanCount: json['laporan_count'],
       config: config,
     );
   }
@@ -111,6 +117,7 @@ class CheckpointProgress {
   final String nama;
   final String? deskripsi;
   final String? lantai;
+  final String? qrCode;
   final int orderIndex;
   final bool isWajib;
   final bool isAktif;
@@ -124,6 +131,7 @@ class CheckpointProgress {
     required this.nama,
     this.deskripsi,
     this.lantai,
+    this.qrCode,
     this.orderIndex = 0,
     this.isWajib = false,
     this.isAktif = true,
@@ -139,6 +147,7 @@ class CheckpointProgress {
       nama: json['nama'] ?? '',
       deskripsi: json['deskripsi'],
       lantai: json['lantai'],
+      qrCode: json['qr_code'],
       orderIndex: json['order_index'] ?? 0,
       isWajib: json['is_wajib'] ?? false,
       isAktif: json['is_aktif'] ?? true,
@@ -154,6 +163,14 @@ class CheckpointProgress {
       sudahScan: json['sudah_scan'] ?? false,
     );
   }
+}
+
+class QrValidationResult {
+  final bool isValid;
+  final String? message;
+  final CheckpointProgress? checkpoint;
+
+  QrValidationResult(this.isValid, this.message, [this.checkpoint]);
 }
 
 class PatrolScan {

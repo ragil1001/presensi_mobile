@@ -62,7 +62,8 @@ class ApiClient {
       final deviceInfo = DeviceInfoPlugin();
       if (kIsWeb) {
         final webInfo = await deviceInfo.webBrowserInfo;
-        _deviceId = 'web_${webInfo.browserName.name}_${webInfo.appVersion?.hashCode ?? 0}';
+        _deviceId =
+            'web_${webInfo.browserName.name}_${webInfo.appVersion?.hashCode ?? 0}';
       } else if (Platform.isAndroid) {
         final android = await deviceInfo.androidInfo;
         _deviceId = android.id; // Unique Android ID
@@ -132,7 +133,7 @@ class ApiClient {
   Future<void> setRememberMe(bool value, String? username) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('remember_me', value);
-    
+
     if (value && username != null) {
       await prefs.setString('remembered_username', username);
     } else {

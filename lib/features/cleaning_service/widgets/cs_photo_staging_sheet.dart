@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/widgets/in_app_camera_page.dart';
 import '../data/models/cs_cleaning_task_model.dart';
 import 'cs_network_image.dart';
 
@@ -60,6 +61,12 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
     _existingPhotos = List.from(widget.existingPhotos);
   }
 
+  @override
+  void dispose() {
+    _cleanupGeneratedStagedFilesSync();
+    super.dispose();
+  }
+
   Future<File?> _compressFile(File file) async {
     if (kIsWeb) return file;
     try {
@@ -67,9 +74,9 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
       final result = await FlutterImageCompress.compressAndGetFile(
         file.path,
         targetPath,
-        quality: 70,
-        minWidth: 1920,
-        minHeight: 1080,
+        quality: 60,
+        minWidth: 800,
+        minHeight: 600,
       );
       return result != null ? File(result.path) : file;
     } catch (_) {
@@ -78,19 +85,81 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
   }
 
   Future<void> _captureFromCamera() async {
+    // For web, use image picker as in-app camera is not supported
+    if (kIsWeb) {
+      await _captureFromCameraWeb();
+      return;
+    }
+
+    // Mobile: use in-app camera
+    while (true) {
+      final File? photo = await InAppCameraPage.capture(
+        context,
+        title: 'Ambil Foto Bukti',
+        useFrontCamera: false,
+        quality: 60,
+        minWidth: 800,
+        minHeight: 600,
+        filePrefix: 'cs_photo',
+      );
+
+      if (photo == null || !mounted) break;
+
+      setState(() {
+        _stagedFiles.add(photo);
+      });
+
+      if (!mounted) return;
+      final takeAnother = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Foto ditambahkan',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Text(
+              '${_stagedFiles.length} foto siap diupload.\nAmbil foto lagi?',
+              style: const TextStyle(
+                  fontSize: 14, color: AppColors.textSecondary)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Selesai'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Ambil Lagi'),
+            ),
+          ],
+        ),
+      );
+
+      if (takeAnother != true || !mounted) break;
+    }
+  }
+
+  Future<void> _captureFromCameraWeb() async {
     while (true) {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1920,
+        preferredCameraDevice: CameraDevice.rear,
+        imageQuality: 60,
+        maxWidth: 720,
+        maxHeight: 720,
       );
 
       if (photo == null || !mounted) break;
 
       setState(() => _isCompressing = true);
-      final rawFile = kIsWeb
-          ? createFileFromBytes(photo.name, await photo.readAsBytes())
-          : File(photo.path);
+      final rawFile = createFileFromBytes(photo.name, await photo.readAsBytes());
       final compressed = await _compressFile(rawFile);
       if (!mounted) return;
 
@@ -99,6 +168,8 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
           _stagedFiles.add(compressed);
           _isCompressing = false;
         });
+      } else if (mounted) {
+        setState(() => _isCompressing = false);
       }
 
       if (!mounted) return;
@@ -140,8 +211,8 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
 
   Future<void> _pickFromGallery() async {
     final List<XFile> photos = await _picker.pickMultiImage(
-      imageQuality: 85,
-      maxWidth: 1920,
+      imageQuality: 60,
+      maxWidth: 800,
     );
 
     if (photos.isEmpty || !mounted) return;
@@ -160,7 +231,9 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
   }
 
   void _removePhoto(int index) {
-    setState(() => _stagedFiles.removeAt(index));
+    final removed = _stagedFiles.removeAt(index);
+    setState(() {});
+    _deleteGeneratedCompressedFileSync(removed);
   }
 
   Future<void> _deleteExistingPhoto(TaskPhoto photo) async {
@@ -190,10 +263,27 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
     if (!mounted) return;
 
     if (success) {
+      _cleanupGeneratedStagedFilesSync();
+      _stagedFiles.clear();
       Navigator.of(context).pop(true);
     } else {
       setState(() => _isUploading = false);
     }
+  }
+
+  void _cleanupGeneratedStagedFilesSync() {
+    for (final file in _stagedFiles) {
+      _deleteGeneratedCompressedFileSync(file);
+    }
+  }
+
+  void _deleteGeneratedCompressedFileSync(File file) {
+    if (!file.path.endsWith('_compressed.jpg')) return;
+    try {
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    } catch (_) {}
   }
 
   @override
@@ -576,18 +666,22 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
           ),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: kIsWeb
+              child: kIsWeb
                 ? Image.memory(
                     file.readAsBytesSync(),
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
+                    gaplessPlayback: true,
                   )
                 : Image.file(
                     file as dynamic,
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
+                    cacheWidth: 160,
+                    cacheHeight: 160,
+                    gaplessPlayback: true,
                   ),
           ),
           const SizedBox(width: 12),

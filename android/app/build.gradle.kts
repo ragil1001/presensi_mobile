@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.qms.presensi"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "29.0.14033849"
 
     compileOptions {
@@ -29,9 +29,22 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            // Tetap 1 APK universal, tapi fokus ABI device Android real (ARM).
+            // x86/x86_64 umumnya hanya untuk emulator dan menambah ukuran APK cukup besar.
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Hindari legacy packaging agar native lib tidak diekstrak dobel saat install.
+            useLegacyPackaging = false
+        }
     }
 
     buildTypes {

@@ -1,4 +1,6 @@
 /// Mobile implementation: stub that throws (never called — guarded by kIsWeb).
+library;
+
 import 'dart:io';
 import 'dart:typed_data';
 

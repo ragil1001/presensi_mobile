@@ -45,6 +45,10 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
       _jamSelesaiController.text = data.jamSelesai ?? '';
       _keteranganController.text = data.keteranganKaryawan ?? '';
       _isHariLibur = data.isHariLibur;
+    } else {
+      // Default initialization
+      _tanggalLembur = DateTime.now();
+      _isHariLibur = false;
     }
   }
 
@@ -475,7 +479,10 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
         _isSubmitting = false;
       });
 
-      CustomSnackbar.showError(context, 'Terjadi kesalahan. Silakan coba lagi.');
+      CustomSnackbar.showError(
+        context,
+        'Terjadi kesalahan. Silakan coba lagi.',
+      );
     }
   }
 
@@ -522,6 +529,8 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
                       isSubmitting: _isSubmitting,
                       isDokumenWajib: !_isEditing,
                       kategoriLabel: 'Lembur',
+                      filePrefix: 'doc_skl',
+                      cameraTitle: 'Ambil Foto SKL',
                       onFileSelected: (File? file) {
                         setState(() => _selectedFile = file);
                       },

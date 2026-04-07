@@ -3,9 +3,14 @@
 /// Every page should use these helpers instead of ad-hoc
 /// `(screenWidth * X).clamp(Y, Z)` formulas.  This guarantees
 /// consistent sizing across all screens.
+library;
+
 class AppFontSize {
   // ─── Page-level header title (e.g. "Pengajuan Izin", "Detail Lembur") ──
   static double title(double sw) => (sw * 0.048).clamp(16.0, 20.0);
+
+  // ─── Subtitle / section heading ──────────────────────────────────────
+  static double subtitle(double sw) => (sw * 0.040).clamp(14.0, 17.0);
 
   // ─── Body / primary content text ──────────────────────────────────────
   static double body(double sw) => (sw * 0.035).clamp(12.0, 15.0);

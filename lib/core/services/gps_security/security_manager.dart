@@ -7,6 +7,7 @@
 ///
 /// When submitting presensi, call [buildPayload] to get a signed
 /// [SecurityPayload] for the server.
+library;
 
 import 'dart:convert';
 import 'dart:math';

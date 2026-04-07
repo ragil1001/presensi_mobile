@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_font_size.dart';
+import '../../../core/widgets/shimmer_loading.dart';
 import '../providers/patrol_history_provider.dart';
 import '../models/patrol_models.dart';
 import '../../../core/constants/app_routes.dart';
@@ -60,6 +63,8 @@ class _PatrolHistoryPageState extends State<PatrolHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final sw = MediaQuery.of(context).size.width;
+
     return Consumer<PatrolHistoryProvider>(
       builder: (context, provider, _) {
         return Column(
@@ -71,48 +76,85 @@ class _PatrolHistoryPageState extends State<PatrolHistoryPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    onPressed: _prevMonth,
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Text(
-                    _monthLabel(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                  GestureDetector(
+                    onTap: _prevMonth,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.chevron_left,
+                          color: AppColors.primary, size: 22),
                     ),
                   ),
-                  IconButton(
-                    onPressed: _nextMonth,
-                    icon: const Icon(Icons.chevron_right),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      _monthLabel(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: AppFontSize.body(sw),
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _nextMonth,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.chevron_right,
+                          color: AppColors.primary, size: 22),
+                    ),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1),
 
             // Content
             Expanded(
               child: provider.isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? ShimmerLoading(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: List.generate(
+                            4,
+                            (_) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: ShimmerBox(
+                                  height: 100, borderRadius: sw * 0.035),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
                   : provider.sessions.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.history,
-                                  size: 48, color: Colors.grey.shade300),
+                                  size: 48,
+                                  color: AppColors.textTertiary
+                                      .withValues(alpha: 0.5)),
                               const SizedBox(height: 8),
                               Text('Tidak ada riwayat patroli',
-                                  style:
-                                      TextStyle(color: Colors.grey.shade500)),
+                                  style: TextStyle(
+                                      color: AppColors.textTertiary,
+                                      fontSize: AppFontSize.body(sw))),
                             ],
                           ),
                         )
                       : RefreshIndicator(
+                          color: AppColors.primary,
                           onRefresh: () async => _load(),
                           child: ListView.builder(
-                            padding: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(sw * 0.04),
                             itemCount: provider.sessions.length,
                             itemBuilder: (context, index) {
                               return _SessionCard(
@@ -144,11 +186,12 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sw = MediaQuery.of(context).size.width;
     final statusColor = session.isSelesai
-        ? Colors.green
+        ? AppColors.success
         : session.isDibatalkan
-            ? Colors.red
-            : Colors.orange;
+            ? AppColors.error
+            : AppColors.warning;
     final statusLabel = session.isSelesai
         ? 'SELESAI'
         : session.isDibatalkan
@@ -163,105 +206,132 @@ class _SessionCard extends StatelessWidget {
         final diff = end.difference(start);
         final h = diff.inHours;
         final m = diff.inMinutes % 60;
-        durasi = h > 0 ? '${h}j ${m}m' : '${m} menit';
+        durasi = h > 0 ? '${h}j ${m}m' : '$m menit';
       }
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      session.configNama ?? 'Patroli',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.all(AppFontSize.paddingH(sw)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(sw * 0.035),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    session.configNama ?? 'Patroli',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: AppFontSize.body(sw),
+                      color: AppColors.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: TextStyle(
+                      fontSize: AppFontSize.caption(sw),
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      statusLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: statusColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (session.projectNama != null)
-                Text(session.projectNama!,
-                    style:
-                        TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today,
-                      size: 14, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (session.projectNama != null)
+              Text(session.projectNama!,
+                  style: TextStyle(
+                      fontSize: AppFontSize.small(sw),
+                      color: AppColors.textSecondary)),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.calendar_today,
+                    size: 14, color: AppColors.textTertiary),
+                const SizedBox(width: 4),
+                Text(
+                  DateFormat('EEEE, d MMMM yyyy', 'id').format(
+                      (DateTime.tryParse(session.tanggal) ?? DateTime.now())
+                          .toLocal()),
+                  style: TextStyle(
+                      fontSize: AppFontSize.small(sw),
+                      color: AppColors.textSecondary),
+                ),
+                if (session.waktuMulai != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(Icons.access_time,
+                      size: 14, color: AppColors.textTertiary),
                   const SizedBox(width: 4),
                   Text(
-                    session.tanggal,
-                    style:
-                        TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    DateFormat('HH:mm').format(
+                        (DateTime.tryParse(session.waktuMulai!) ??
+                            DateTime.now()).toLocal()),
+                    style: TextStyle(
+                        fontSize: AppFontSize.small(sw),
+                        color: AppColors.textSecondary),
                   ),
-                  if (session.waktuMulai != null) ...[
-                    const SizedBox(width: 12),
-                    Icon(Icons.access_time,
-                        size: 14, color: Colors.grey.shade500),
-                    const SizedBox(width: 4),
-                    Text(
-                      DateFormat('HH:mm').format(
-                          DateTime.tryParse(session.waktuMulai!) ??
-                              DateTime.now()),
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                  if (durasi != null) ...[
-                    const SizedBox(width: 12),
-                    Icon(Icons.timer_outlined,
-                        size: 14, color: Colors.grey.shade500),
-                    const SizedBox(width: 4),
-                    Text(durasi,
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
-                  ],
                 ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.qr_code_scanner,
-                      size: 14, color: Colors.grey.shade500),
+                if (durasi != null) ...[
+                  const SizedBox(width: 12),
+                  Icon(Icons.timer_outlined,
+                      size: 14, color: AppColors.textTertiary),
                   const SizedBox(width: 4),
-                  Text(
-                    '${session.scansCount ?? session.totalCheckpointScan} scan',
-                    style:
-                        TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
+                  Text(durasi,
+                      style: TextStyle(
+                          fontSize: AppFontSize.small(sw),
+                          color: AppColors.textSecondary)),
                 ],
-              ),
-            ],
-          ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.qr_code_scanner,
+                    size: 14, color: AppColors.textTertiary),
+                const SizedBox(width: 4),
+                Text(
+                  '${session.scanCount ?? 0} scan',
+                  style: TextStyle(
+                      fontSize: AppFontSize.small(sw),
+                      color: AppColors.textSecondary),
+                ),
+                const SizedBox(width: 12),
+                Icon(Icons.description_outlined,
+                    size: 14, color: AppColors.textTertiary),
+                const SizedBox(width: 4),
+                Text(
+                  '${session.laporanCount ?? 0} laporan',
+                  style: TextStyle(
+                      fontSize: AppFontSize.small(sw),
+                      color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

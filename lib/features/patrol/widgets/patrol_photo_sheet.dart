@@ -1,9 +1,12 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_font_size.dart';
+import '../pages/patrol_camera_page.dart';
 
 class PatrolPhotoSheet extends StatefulWidget {
   final List<File> existingPhotos;
@@ -15,6 +18,7 @@ class PatrolPhotoSheet extends StatefulWidget {
     this.maxPhotos = 5,
   });
 
+  /// Show the photo review/edit sheet with existing photos.
   static Future<List<File>?> show(
     BuildContext context, {
     List<File> existingPhotos = const [],
@@ -31,12 +35,41 @@ class PatrolPhotoSheet extends StatefulWidget {
     );
   }
 
+  /// Compress an image file. Can be called from outside the sheet.
+  static Future<File?> compressImage(File file) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final targetPath = p.join(
+          dir.path, 'patrol_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70,
+        minWidth: 640,
+        minHeight: 640,
+      );
+      if (result == null) return file;
+
+      final compressedFile = File(result.path);
+      // Hindari menumpuk file kamera asli di cache sementara.
+      if (compressedFile.path != file.path) {
+        try {
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
+      return compressedFile;
+    } catch (_) {
+      return file;
+    }
+  }
+
   @override
   State<PatrolPhotoSheet> createState() => _PatrolPhotoSheetState();
 }
 
 class _PatrolPhotoSheetState extends State<PatrolPhotoSheet> {
-  final ImagePicker _picker = ImagePicker();
   late List<File> _photos;
   bool _isProcessing = false;
 
@@ -46,66 +79,35 @@ class _PatrolPhotoSheetState extends State<PatrolPhotoSheet> {
     _photos = List.from(widget.existingPhotos);
   }
 
-  Future<File?> _compressImage(File file) async {
-    try {
-      final dir = await getTemporaryDirectory();
-      final targetPath = p.join(
-          dir.path, 'patrol_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      final result = await FlutterImageCompress.compressAndGetFile(
-        file.absolute.path,
-        targetPath,
-        quality: 70,
-        minWidth: 1024,
-        minHeight: 1024,
-      );
-      return result != null ? File(result.path) : file;
-    } catch (_) {
-      return file;
-    }
-  }
-
   Future<void> _takePhoto() async {
     if (_photos.length >= widget.maxPhotos) return;
     setState(() => _isProcessing = true);
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-      );
-      if (picked != null) {
-        final compressed = await _compressImage(File(picked.path));
-        if (compressed != null && mounted) {
-          setState(() => _photos.add(compressed));
-        }
+      // Use in-app camera instead of external camera
+      final captured = await PatrolCameraPage.capture(context);
+      if (captured != null && mounted) {
+        setState(() => _photos.add(captured));
       }
     } catch (_) {}
-    if (mounted) setState(() => _isProcessing = false);
-  }
-
-  Future<void> _pickFromGallery() async {
-    if (_photos.length >= widget.maxPhotos) return;
-    setState(() => _isProcessing = true);
-    try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-      if (picked != null) {
-        final compressed = await _compressImage(File(picked.path));
-        if (compressed != null && mounted) {
-          setState(() => _photos.add(compressed));
-        }
-      }
-    } catch (_) {}
-    if (mounted) setState(() => _isProcessing = false);
+    if (mounted) {
+      setState(() => _isProcessing = false);
+    }
   }
 
   void _removePhoto(int index) {
-    setState(() => _photos.removeAt(index));
+    final removed = _photos.removeAt(index);
+    setState(() {});
+    try {
+      if (p.basename(removed.path).startsWith('patrol_')) {
+        removed.deleteSync();
+      }
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
+    final sw = MediaQuery.of(context).size.width;
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -121,16 +123,21 @@ class _PatrolPhotoSheetState extends State<PatrolPhotoSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: AppColors.textTertiary.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(height: 16),
-          const Text('Foto Patrol',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+          Text('Foto Patrol',
+              style: TextStyle(
+                  fontSize: AppFontSize.subtitle(sw),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
           Text('${_photos.length}/${widget.maxPhotos} foto',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              style: TextStyle(
+                  fontSize: AppFontSize.small(sw),
+                  color: AppColors.textTertiary)),
           const SizedBox(height: 16),
           if (_photos.isNotEmpty)
             SizedBox(
@@ -145,23 +152,23 @@ class _PatrolPhotoSheetState extends State<PatrolPhotoSheet> {
                     child: Stack(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           child: Image.file(
-                            _photos[index],
+                            _photos[index] as dynamic,
                             width: 100,
                             height: 100,
                             fit: BoxFit.cover,
                           ),
                         ),
                         Positioned(
-                          top: 2,
-                          right: 2,
+                          top: 4,
+                          right: 4,
                           child: GestureDetector(
                             onTap: () => _removePhoto(index),
                             child: Container(
-                              padding: const EdgeInsets.all(2),
+                              padding: const EdgeInsets.all(3),
                               decoration: const BoxDecoration(
-                                color: Colors.red,
+                                color: AppColors.error,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.close,
@@ -179,53 +186,89 @@ class _PatrolPhotoSheetState extends State<PatrolPhotoSheet> {
           if (_photos.length < widget.maxPhotos)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isProcessing ? null : _takePhoto,
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Kamera'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
+              child: GestureDetector(
+                onTap: _isProcessing ? null : _takePhoto,
+                child: Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.5)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isProcessing ? null : _pickFromGallery,
-                      icon: const Icon(Icons.photo_library),
-                      label: const Text('Galeri'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
+                  child: _isProcessing
+                      ? const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.primary),
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add_a_photo,
+                                color: AppColors.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Tambah Foto',
+                              style: TextStyle(
+                                fontSize: AppFontSize.body(sw),
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
               ),
-            ),
-          if (_isProcessing)
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: CircularProgressIndicator(),
             ),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed:
-                    _photos.isNotEmpty ? () => Navigator.pop(context, _photos) : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E40AF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+            child: GestureDetector(
+              onTap: _photos.isNotEmpty
+                  ? () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.pop(context, _photos);
+                    }
+                  : null,
+              child: Container(
+                width: double.infinity,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: _photos.isNotEmpty
+                      ? const LinearGradient(
+                          colors: [AppColors.primary, AppColors.primaryDark],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        )
+                      : null,
+                  color: _photos.isEmpty ? AppColors.grey : null,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: _photos.isNotEmpty
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
                 ),
-                child: Text('Gunakan ${_photos.length} Foto'),
+                child: Center(
+                  child: Text(
+                    'Gunakan ${_photos.length} Foto',
+                    style: TextStyle(
+                      fontSize: AppFontSize.button(sw),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

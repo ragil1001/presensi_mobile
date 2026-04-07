@@ -58,7 +58,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
   }
 
   Future<void> _loadData() async {
-    if (!mounted) return;
+    if (!context.mounted) return;
     _lastRefreshTime = DateTime.now();
 
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
@@ -117,7 +117,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       ],
     );
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (result == "detail") {
       await Navigator.push(

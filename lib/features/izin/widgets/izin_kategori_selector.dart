@@ -147,22 +147,38 @@ Future<KategoriIzin?> showKategoriDialog({
                       final isSelected =
                           selectedKategori?.value == kategori.value;
                       final katColor = getKategoriColor(kategori.value);
+                      final isCutiTahunan =
+                          kategori.value == 'cuti_tahunan';
+                      final isCutiHabis = isCutiTahunan &&
+                          kategori.sisaCuti != null &&
+                          kategori.sisaCuti! <= 0;
+                      final isDisabled = isCutiHabis;
+                      final effectiveLabelColor = isDisabled
+                          ? AppColors.textHint
+                          : (isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary);
 
                       return Padding(
                         padding: EdgeInsets.only(bottom: screenWidth * 0.02),
                         child: InkWell(
-                          onTap: () => Navigator.of(context).pop(kategori),
+                          onTap:
+                              isDisabled ? null : () => Navigator.of(context).pop(kategori),
                           borderRadius: BorderRadius.circular(14),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: EdgeInsets.all(screenWidth * 0.035),
                             decoration: BoxDecoration(
-                              color: isSelected
+                              color: isDisabled
+                                  ? Colors.grey.shade100
+                                  : isSelected
                                   ? AppColors.primary.withValues(alpha: 0.08)
                                   : AppColors.greyLight,
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: isSelected
+                                color: isDisabled
+                                    ? Colors.grey.shade300
+                                    : isSelected
                                     ? AppColors.primary
                                     : AppColors.divider,
                                 width: isSelected ? 2 : 1,
@@ -209,9 +225,7 @@ Future<KategoriIzin?> showKategoriDialog({
                                         style: TextStyle(
                                           fontSize: labelFontSize,
                                           fontWeight: FontWeight.bold,
-                                          color: isSelected
-                                              ? AppColors.primary
-                                              : AppColors.textPrimary,
+                                          color: effectiveLabelColor,
                                         ),
                                       ),
                                     ),
@@ -231,7 +245,9 @@ Future<KategoriIzin?> showKategoriDialog({
                                   kategori.deskripsi,
                                   style: TextStyle(
                                     fontSize: descFontSize,
-                                    color: AppColors.textSecondary,
+                                    color: isDisabled
+                                        ? AppColors.textHint
+                                        : AppColors.textSecondary,
                                   ),
                                 ),
                                 if (kategori.sisaCuti != null) ...[
@@ -241,7 +257,20 @@ Future<KategoriIzin?> showKategoriDialog({
                                     style: TextStyle(
                                       fontSize: sisaFontSize,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
+                                      color: isDisabled
+                                          ? AppColors.error
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                                if (isDisabled) ...[
+                                  SizedBox(height: screenWidth * 0.01),
+                                  Text(
+                                    'Sisa cuti tahunan habis',
+                                    style: TextStyle(
+                                      fontSize: sisaFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.error,
                                     ),
                                   ),
                                 ],

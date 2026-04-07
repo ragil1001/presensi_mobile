@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
@@ -17,8 +17,36 @@ class PatrolScanProvider with ChangeNotifier {
   String? get error => _error;
   String? get successMessage => _successMessage;
 
+  String _friendlyError(dynamic e) {
+    if (e is DioException) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data?['errors'];
+        if (errors is Map) {
+          final first = (errors.values.first as List?)?.first;
+          if (first != null) return first.toString();
+        }
+        return e.response?.data?['message']?.toString() ??
+            'Data yang dikirim tidak valid.';
+      }
+      if (e.response?.data?['message'] != null) {
+        return e.response!.data['message'].toString();
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'Koneksi timeout. Periksa jaringan Anda.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'Tidak dapat terhubung ke server.';
+      }
+      return 'Terjadi kesalahan jaringan. Silakan coba lagi.';
+    }
+    return 'Terjadi kesalahan. Silakan coba lagi.';
+  }
+
   Future<bool> submitScan({
     required String qrCode,
+    String? deskripsi,
     double? latitude,
     double? longitude,
     double? accuracy,
@@ -31,13 +59,14 @@ class PatrolScanProvider with ChangeNotifier {
     try {
       final formData = FormData.fromMap({
         'qr_code': qrCode,
+        if (deskripsi != null && deskripsi.isNotEmpty) 'deskripsi': deskripsi,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
         if (accuracy != null) 'akurasi_gps': accuracy,
       });
       for (var i = 0; i < fotos.length; i++) {
         formData.files.add(MapEntry(
-          fotos.length == 1 ? 'foto' : 'foto[$i]',
+          'foto[$i]',
           await MultipartFile.fromFile(
             fotos[i].path,
             filename: fotos[i].path.split('/').last,
@@ -56,11 +85,9 @@ class PatrolScanProvider with ChangeNotifier {
         notifyListeners();
         return true;
       }
-    } on DioException catch (e) {
-      _error =
-          e.response?.data?['message']?.toString() ?? 'Gagal mengirim scan';
+      _error = data['message']?.toString() ?? 'Gagal mengirim scan.';
     } catch (e) {
-      _error = 'Terjadi kesalahan';
+      _error = _friendlyError(e);
     }
     _isUploading = false;
     notifyListeners();
@@ -89,7 +116,7 @@ class PatrolScanProvider with ChangeNotifier {
       });
       for (var i = 0; i < fotos.length; i++) {
         formData.files.add(MapEntry(
-          fotos.length == 1 ? 'foto' : 'foto[$i]',
+          'foto[$i]',
           await MultipartFile.fromFile(
             fotos[i].path,
             filename: fotos[i].path.split('/').last,
@@ -108,11 +135,9 @@ class PatrolScanProvider with ChangeNotifier {
         notifyListeners();
         return true;
       }
-    } on DioException catch (e) {
-      _error = e.response?.data?['message']?.toString() ??
-          'Gagal mengirim laporan';
+      _error = data['message']?.toString() ?? 'Gagal mengirim laporan.';
     } catch (e) {
-      _error = 'Terjadi kesalahan';
+      _error = _friendlyError(e);
     }
     _isUploading = false;
     notifyListeners();

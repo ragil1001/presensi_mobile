@@ -7,14 +7,24 @@ library;
 
 import 'dart:typed_data';
 
-class File {
+class FileSystemEntity {
   final String path;
+  FileSystemEntity(this.path);
+
+  Future<int> length() async => 0;
+  Future<FileStat> stat() async => FileStat._empty();
+  Future<FileSystemEntity> delete({bool recursive = false}) async => this;
+  static Future<bool> isFile(String path) async => false;
+  static Future<bool> isDirectory(String path) async => false;
+}
+
+class File extends FileSystemEntity {
   Uint8List? _bytes;
 
-  File(this.path);
+  File(super.path);
 
   /// Web constructor: stores bytes in memory (no file system on web).
-  File.fromBytes(this.path, this._bytes);
+  File.fromBytes(super.path, this._bytes);
 
   File get absolute => this;
 
@@ -38,6 +48,11 @@ class File {
     return this;
   }
 
+  void writeAsBytesSync(List<int> bytes) {
+    _bytes = Uint8List.fromList(bytes);
+  }
+
+  @override
   Future<int> length() async {
     if (_bytes != null) return _bytes!.length;
     return 0;
@@ -52,11 +67,13 @@ class File {
 
   bool existsSync() => _bytes != null;
 
+  @override
   Future<File> delete({bool recursive = false}) async => this;
 
   void deleteSync({bool recursive = false}) {}
 
   FileStat statSync() => FileStat._empty();
+  @override
   Future<FileStat> stat() async => FileStat._empty();
 
   Future<File> copy(String newPath) async {
@@ -70,9 +87,8 @@ class File {
   Uri get uri => Uri.file(path);
 }
 
-class Directory {
-  final String path;
-  Directory(this.path);
+class Directory extends FileSystemEntity {
+  Directory(super.path);
 
   Future<bool> exists() async => false;
   bool existsSync() => false;
@@ -93,17 +109,6 @@ class Directory {
   }) {
     return const [];
   }
-}
-
-class FileSystemEntity {
-  final String path;
-  FileSystemEntity(this.path);
-
-  Future<int> length() async => 0;
-  Future<FileStat> stat() async => FileStat._empty();
-  Future<FileSystemEntity> delete({bool recursive = false}) async => this;
-  static Future<bool> isFile(String path) async => false;
-  static Future<bool> isDirectory(String path) async => false;
 }
 
 class FileStat {

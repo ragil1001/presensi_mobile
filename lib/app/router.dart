@@ -215,7 +215,7 @@ class _TukarShiftDetailLoaderState extends State<TukarShiftDetailLoader> {
     if (request != null) {
       Navigator.pushReplacement(
         context,
-        AppPageRoute.to(TukarShiftDetailPage(request: request!)),
+        AppPageRoute.to(TukarShiftDetailPage(request: request)),
       );
     } else {
       if (mounted) {

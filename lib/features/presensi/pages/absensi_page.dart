@@ -126,8 +126,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
       setState(() {
         _presensiData = data;
-        _isJabatanExcluded =
-            data?['karyawan']?['is_jabatan_excluded'] ?? false;
+        _isJabatanExcluded = data?['karyawan']?['is_jabatan_excluded'] ?? false;
         _isLoadingPresensi = false;
       });
 
@@ -152,8 +151,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
   void _configureSecurityManager() {
     final projectLokasi = _presensiData?['project']?['lokasi'];
-    final projectRadius =
-        (_presensiData?['project']?['radius'] ?? 0).toDouble();
+    final projectRadius = (_presensiData?['project']?['radius'] ?? 0)
+        .toDouble();
 
     if (projectLokasi != null) {
       final projectLat = (projectLokasi['latitude'] as num).toDouble();
@@ -254,8 +253,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       if (!_hasGpsPosition) {
         try {
           Position pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 2),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 2),
+            ),
           );
           if (mounted && !_isDisposed) {
             await _applyNewPosition(pos, initial: true);
@@ -280,7 +281,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           );
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.';
+        _errorMessage =
+            'Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.';
       });
     }
   }
@@ -355,8 +357,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
     try {
       Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 2),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 2),
+        ),
       );
       if (mounted && !_isDisposed) {
         await _applyNewPosition(pos, initial: true);
@@ -366,10 +370,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted && !_isDisposed) {
-        CustomSnackbar.showError(
-          context,
-          'Gagal memperbarui lokasi',
-        );
+        CustomSnackbar.showError(context, 'Gagal memperbarui lokasi');
       }
     }
   }
@@ -515,10 +516,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           backgroundColor: Colors.transparent,
           child: Container(
             width: sw * 0.85,
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: sh * 0.7,
-            ),
+            constraints: BoxConstraints(maxWidth: 400, maxHeight: sh * 0.7),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(borderRadius),
@@ -749,8 +747,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   // Convenience getters for the build method (keeps UI code clean)
   // ------------------------------------------------------------------
 
-  bool get _isFakeGpsDetected =>
-      _securityState.action == SecurityAction.block;
+  bool get _isFakeGpsDetected => _securityState.action == SecurityAction.block;
 
   bool get _dalamRadius => _securityState.isInRadius;
 
@@ -876,114 +873,108 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           Positioned.fill(
             child: Center(
               child: FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: displayLocation,
-                      initialZoom: 16.0,
-                      minZoom: 8.0,
-                      maxZoom: 18.0,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                      ),
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.qms.presensi',
-                        maxZoom: 18,
-                      ),
-                      if (projectLatLng != null)
-                        CircleLayer(
-                          circles: [
-                            CircleMarker(
-                              point: projectLatLng,
-                              radius: projectRadius,
-                              useRadiusInMeter: true,
-                              color: canPresensiByLocation
-                                  ? Colors.green.withValues(alpha: 0.2)
-                                  : Colors.red.withValues(alpha: 0.2),
-                              borderColor: canPresensiByLocation
-                                  ? Colors.green
-                                  : Colors.red,
-                              borderStrokeWidth: 2,
-                            ),
-                          ],
-                        ),
-                      if (projectLatLng != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: projectLatLng,
-                              width: (screenWidth * 0.1).clamp(32.0, 44.0),
-                              height: (screenWidth * 0.1).clamp(32.0, 44.0),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: screenWidth * 0.007,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: screenWidth * 0.015,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Icons.business,
-                                  color: Colors.white,
-                                  size: (screenWidth * 0.05).clamp(16.0, 22.0),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      if (_hasGpsPosition)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: displayLocation,
-                              width: (screenWidth * 0.1).clamp(32.0, 44.0),
-                              height: (screenWidth * 0.1).clamp(32.0, 44.0),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _isFakeGpsDetected
-                                      ? Colors.orange
-                                      : Colors.red,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: screenWidth * 0.007,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: screenWidth * 0.015,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  _isFakeGpsDetected
-                                      ? Icons.warning
-                                      : Icons.person,
-                                  color: Colors.white,
-                                  size: (screenWidth * 0.05).clamp(16.0, 22.0),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: displayLocation,
+                  initialZoom: 16.0,
+                  minZoom: 8.0,
+                  maxZoom: 18.0,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                   ),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.qms.presensi',
+                    maxZoom: 18,
+                  ),
+                  if (projectLatLng != null)
+                    CircleLayer(
+                      circles: [
+                        CircleMarker(
+                          point: projectLatLng,
+                          radius: projectRadius,
+                          useRadiusInMeter: true,
+                          color: canPresensiByLocation
+                              ? Colors.green.withValues(alpha: 0.2)
+                              : Colors.red.withValues(alpha: 0.2),
+                          borderColor: canPresensiByLocation
+                              ? Colors.green
+                              : Colors.red,
+                          borderStrokeWidth: 2,
+                        ),
+                      ],
+                    ),
+                  if (projectLatLng != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: projectLatLng,
+                          width: (screenWidth * 0.1).clamp(32.0, 44.0),
+                          height: (screenWidth * 0.1).clamp(32.0, 44.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: screenWidth * 0.007,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: screenWidth * 0.015,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.business,
+                              color: Colors.white,
+                              size: (screenWidth * 0.05).clamp(16.0, 22.0),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (_hasGpsPosition)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: displayLocation,
+                          width: (screenWidth * 0.1).clamp(32.0, 44.0),
+                          height: (screenWidth * 0.1).clamp(32.0, 44.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _isFakeGpsDetected
+                                  ? Colors.orange
+                                  : Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: screenWidth * 0.007,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: screenWidth * 0.015,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _isFakeGpsDetected ? Icons.warning : Icons.person,
+                              color: Colors.white,
+                              size: (screenWidth * 0.05).clamp(16.0, 22.0),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
 

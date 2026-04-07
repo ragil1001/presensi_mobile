@@ -13,6 +13,7 @@ class IzinDateRangeSelector extends StatelessWidget {
   final DateTime? tanggalSelesai;
   final bool isSubmitting;
   final bool isTanggalSelesaiEditable;
+  final String? autoEndDateNote;
   final VoidCallback onPickTanggalMulai;
   final VoidCallback onPickTanggalSelesai;
 
@@ -26,6 +27,7 @@ class IzinDateRangeSelector extends StatelessWidget {
     required this.tanggalSelesai,
     required this.isSubmitting,
     required this.isTanggalSelesaiEditable,
+    this.autoEndDateNote,
     required this.onPickTanggalMulai,
     required this.onPickTanggalSelesai,
   });
@@ -152,7 +154,9 @@ class IzinDateRangeSelector extends StatelessWidget {
               left: screenWidth * 0.01,
             ),
             child: Text(
-              'Tanggal selesai otomatis berdasarkan jenis cuti khusus',
+              (autoEndDateNote != null && autoEndDateNote!.trim().isNotEmpty)
+                  ? autoEndDateNote!.trim()
+                  : 'Tanggal selesai otomatis berdasarkan jumlah hari pada kategori ini',
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: errorFontSize,

@@ -1,4 +1,6 @@
 /// Web implementation: creates a File that stores bytes in memory.
+library;
+
 import 'dart:typed_data';
 import 'fake_io.dart';
 

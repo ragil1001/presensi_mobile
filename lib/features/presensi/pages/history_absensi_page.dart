@@ -42,7 +42,9 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       final provider = Provider.of<PresensiProvider>(context, listen: false);
-      provider.loadMoreHistory();
+      if (provider.historyHasMore) {
+        provider.loadMoreHistory();
+      }
     }
   }
 
@@ -351,7 +353,11 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
 
   int _getItemCount(PresensiProvider provider) {
     return provider.historyItems.length +
-        (provider.isLoadingHistory && provider.historyItems.isNotEmpty ? 1 : 0);
+        (provider.isLoadingHistory &&
+                provider.historyItems.isNotEmpty &&
+                provider.historyHasMore
+            ? 1
+            : 0);
   }
 
   // ── History Card ──
@@ -571,11 +577,12 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
       case 'pulang cepat':
         return 'PC';
       case 'lembur':
-        return 'L';
+        return 'LB';
       case 'lembur pending':
-        return 'LP';
+        return 'LBP';
       case 'no pulang':
-        return 'NP';
+      case 'tidak presensi pulang':
+        return 'TPP';
       default:
         return badge;
     }

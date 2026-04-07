@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../app/router.dart';
 import '../../../core/widgets/app_refresh_indicator.dart';
 import 'package:provider/provider.dart';
@@ -19,7 +19,7 @@ import '../../../core/widgets/error_state_widget.dart';
 import '../widgets/home_menu_card.dart';
 import '../widgets/home_shimmer_layout.dart';
 
-// âœ… Custom PageRoute tanpa animasi
+// Custom PageRoute tanpa animasi
 class NoAnimationPageRoute<T> extends MaterialPageRoute<T> {
   NoAnimationPageRoute({required super.builder});
 
@@ -187,6 +187,15 @@ class _HomePageState extends State<HomePage>
                   onRefresh: _refreshAllData,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      bottom:
+                          (MediaQuery.of(context).size.height * 0.095).clamp(
+                            70.0,
+                            90.0,
+                          ) +
+                          20,
+                    ),
+
                     child: shouldShowShimmer
                         ? HomeShimmerLayout(
                             screenWidth: screenWidth,
@@ -217,7 +226,7 @@ class _HomePageState extends State<HomePage>
                                   children: [
                                     GestureDetector(
                                       onTap: () async {
-                                        // âœ… Gunakan NoAnimationPageRoute
+                                        // Gunakan NoAnimationPageRoute
                                         await Navigator.push(
                                           context,
                                           NoAnimationPageRoute(
@@ -431,7 +440,8 @@ class _HomePageState extends State<HomePage>
                                         ErrorStateWidget(
                                           key: _whiteCardKey,
                                           compact: true,
-                                          message: presensiProvider.errorMessage!,
+                                          message:
+                                              presensiProvider.errorMessage!,
                                           onRetry: _loadInitialData,
                                         )
                                       else
@@ -562,7 +572,8 @@ class _HomePageState extends State<HomePage>
                                             }
                                           },
                                         ),
-                                        if (presensiData?.hasCsAccess == true) ...[
+                                        if (presensiData?.hasCsAccess ==
+                                            true) ...[
                                           SizedBox(width: screenWidth * 0.04),
                                           HomeMenuCard(
                                             assetPath: 'assets/cs.webp',
@@ -580,10 +591,11 @@ class _HomePageState extends State<HomePage>
                                             },
                                           ),
                                         ],
-                                        if (presensiData?.hasPatrolAccess == true) ...[
+                                        if (presensiData?.hasPatrolAccess ==
+                                            true) ...[
                                           SizedBox(width: screenWidth * 0.04),
                                           HomeMenuCard(
-                                            icon: Icons.security_rounded,
+                                            assetPath: 'assets/patroli.webp',
                                             label: 'Patroli',
                                             screenWidth: screenWidth,
                                             screenHeight: screenHeight,

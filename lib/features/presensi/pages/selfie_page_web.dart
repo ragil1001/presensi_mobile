@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -11,7 +10,7 @@ import 'package:presensi_mobile/core/platform/web_file.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/gps_security/security_manager.dart';
-import '../../../core/services/gps_security/models.dart';
+import '../../../core/utils/safe_image_picker.dart';
 import '../../../providers/presensi_provider.dart';
 import '../../../features/navigation/widgets/custom_presensi_dialog.dart';
 
@@ -38,8 +37,6 @@ class SelfiePageWeb extends StatefulWidget {
 }
 
 class _SelfiePageWebState extends State<SelfiePageWeb> {
-  final ImagePicker _picker = ImagePicker();
-
   bool _isSubmitting = false;
   bool _isCompressing = false;
   String? _errorMessage;
@@ -59,8 +56,10 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
   Future<void> _getCurrentLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
 
       if (mounted) {
@@ -101,12 +100,11 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
     }
 
     try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: ImageSource.camera,
+      final XFile? pickedFile = await SafeImagePicker.pickImageFromCamera(
         preferredCameraDevice: CameraDevice.front,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 60,
       );
 
       if (pickedFile == null) return;
@@ -161,10 +159,13 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
       });
 
       // 2. Use cached GPS position
-      final position = _currentPosition ??
+      final position =
+          _currentPosition ??
           await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 5),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 5),
+            ),
           );
 
       // 3. Build security payload (HMAC-signed)
@@ -180,6 +181,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
       );
 
       // 4. Submit via PresensiProvider
+      if (!mounted) return;
       final provider = Provider.of<PresensiProvider>(context, listen: false);
       final result = await provider.submitPresensi(
         jenis: widget.mode.toUpperCase(),
@@ -277,10 +279,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
           backgroundColor: Colors.transparent,
           child: Container(
             width: sw * 0.85,
-            constraints: BoxConstraints(
-              maxWidth: 400,
-              maxHeight: sh * 0.7,
-            ),
+            constraints: BoxConstraints(maxWidth: 400, maxHeight: sh * 0.7),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(borderRadius),
@@ -428,9 +427,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                sw * 0.03,
-                              ),
+                              borderRadius: BorderRadius.circular(sw * 0.03),
                             ),
                           ),
                           child: Text(
@@ -515,13 +512,14 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: _errorMessage != null
           ? _buildErrorState()
           : _capturedBytes != null
-              ? _buildPreviewState()
-              : _buildCaptureState(),
+          ? _buildPreviewState()
+          : _buildCaptureState(),
     );
   }
 
@@ -584,11 +582,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black,
-                  Colors.grey.shade900,
-                  Colors.black,
-                ],
+                colors: [Colors.black, Colors.grey.shade900, Colors.black],
               ),
             ),
           ),
@@ -613,10 +607,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
                         height: 120,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white24,
-                            width: 2,
-                          ),
+                          border: Border.all(color: Colors.white24, width: 2),
                           color: Colors.white.withValues(alpha: 0.05),
                         ),
                         child: const Icon(
@@ -659,9 +650,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
     return Stack(
       children: [
         // Black background
-        Positioned.fill(
-          child: Container(color: Colors.black),
-        ),
+        Positioned.fill(child: Container(color: Colors.black)),
 
         // Content
         SafeArea(
@@ -696,10 +685,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
                 child: Text(
                   'Pastikan wajah Anda terlihat jelas',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ),
 
@@ -723,8 +709,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
       child: Row(
         children: [
           IconButton(
-            onPressed:
-                _isSubmitting ? null : () => Navigator.pop(context),
+            onPressed: _isSubmitting ? null : () => Navigator.pop(context),
             icon: Icon(
               Icons.arrow_back,
               color: _isSubmitting ? Colors.white38 : Colors.white,
@@ -733,18 +718,13 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
           ),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.black54,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              widget.mode == 'masuk'
-                  ? 'Presensi Masuk'
-                  : 'Presensi Pulang',
+              widget.mode == 'masuk' ? 'Presensi Masuk' : 'Presensi Pulang',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -799,10 +779,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
               label: const Text('Ulangi'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: const BorderSide(
-                  color: Colors.white54,
-                  width: 1.5,
-                ),
+                side: const BorderSide(color: Colors.white54, width: 1.5),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),

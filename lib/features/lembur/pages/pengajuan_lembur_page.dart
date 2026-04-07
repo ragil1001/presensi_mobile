@@ -57,7 +57,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
   }
 
   Future<void> _loadData() async {
-    if (!mounted) return;
+    if (!context.mounted) return;
     _lastRefreshTime = DateTime.now();
 
     final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
@@ -109,7 +109,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
       ],
     );
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (result == "detail") {
       await Navigator.push(
