@@ -3,14 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:camera/camera.dart';
 import 'package:image/image.dart' as img;
 import 'package:presensi_mobile/core/platform/platform_io.dart';
 import 'package:presensi_mobile/core/platform/web_file.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/gps_security/security_manager.dart';
-import '../../../core/utils/safe_image_picker.dart';
 import '../../../providers/presensi_provider.dart';
 import '../../../features/navigation/widgets/custom_presensi_dialog.dart';
 
@@ -37,6 +36,8 @@ class SelfiePageWeb extends StatefulWidget {
 }
 
 class _SelfiePageWebState extends State<SelfiePageWeb> {
+  CameraController? _controller;
+  bool _isCameraInitialized = false;
   bool _isSubmitting = false;
   bool _isCompressing = false;
   String? _errorMessage;
@@ -44,72 +45,89 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
   // Captured image data
   Uint8List? _capturedBytes;
 
-  // Current location
+  // Use GPS from widget params directly (already obtained from absensi_page)
   Position? _currentPosition;
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    _initializeCamera();
+    // Use position from widget params - no need to re-fetch GPS
+    _currentPosition = Position(
+      latitude: widget.latitude,
+      longitude: widget.longitude,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
   }
 
-  Future<void> _getCurrentLocation() async {
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeCamera() async {
     try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        setState(() {
+          _errorMessage = 'Tidak ada kamera yang tersedia.';
+        });
+        return;
+      }
+
+      // Prefer front camera for selfie
+      CameraDescription? frontCamera;
+      for (var camera in cameras) {
+        if (camera.lensDirection == CameraLensDirection.front) {
+          frontCamera = camera;
+          break;
+        }
+      }
+
+      final selectedCamera = frontCamera ?? cameras.first;
+
+      _controller = CameraController(
+        selectedCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
       );
+
+      await _controller!.initialize();
 
       if (mounted) {
         setState(() {
-          _currentPosition = position;
+          _isCameraInitialized = true;
+          _errorMessage = null;
         });
       }
     } catch (e) {
       if (mounted) {
-        CustomPresensiDialog.show(
-          context: context,
-          title: 'Gagal Mendapatkan Lokasi',
-          message: 'Tidak dapat mengambil lokasi GPS Anda saat ini.',
-          icon: Icons.location_off,
-          iconColor: AppColors.warning,
-          additionalInfo: e.toString(),
-          confirmText: 'OK',
-        );
+        setState(() {
+          _errorMessage =
+              'Gagal menginisialisasi kamera. Pastikan izin kamera telah diberikan.';
+        });
       }
     }
   }
 
   Future<void> _takePicture() async {
-    if (_isSubmitting) return;
-
-    if (_currentPosition == null) {
-      CustomPresensiDialog.show(
-        context: context,
-        title: 'Menunggu Lokasi GPS',
-        message: 'Sedang mengambil lokasi GPS Anda. Mohon tunggu sebentar...',
-        icon: Icons.gps_fixed,
-        iconColor: AppColors.info,
-        confirmText: 'OK',
-      );
-
-      await _getCurrentLocation();
-      if (_currentPosition == null) return;
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return;
     }
 
+    if (_isSubmitting) return;
+
     try {
-      final XFile? pickedFile = await SafeImagePicker.pickImageFromCamera(
-        preferredCameraDevice: CameraDevice.front,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 60,
-      );
-
-      if (pickedFile == null) return;
-
-      final bytes = await pickedFile.readAsBytes();
+      final XFile image = await _controller!.takePicture();
+      final bytes = await image.readAsBytes();
 
       if (!mounted) return;
 
@@ -135,6 +153,10 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
     setState(() {
       _capturedBytes = null;
     });
+    // Re-initialize camera if disposed
+    if (_controller == null || !_controller!.value.isInitialized) {
+      _initializeCamera();
+    }
   }
 
   Future<void> _confirmAndSubmit() async {
@@ -407,6 +429,36 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
                               const SizedBox(height: 8),
                               _buildInfoRow('Waktu', waktu),
                             ],
+                            if (data?['status'] == 'LEMBUR_PENDING') ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.orange.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, color: Colors.orange.shade700, size: 18),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Silakan mengajukan pengajuan lembur dengan mengunggah SKL.',
+                                        style: TextStyle(
+                                          fontSize: messageSize * 0.9,
+                                          color: Colors.orange.shade800,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -548,6 +600,7 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
                   setState(() {
                     _errorMessage = null;
                   });
+                  _initializeCamera();
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Coba Lagi'),
@@ -571,73 +624,61 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
     );
   }
 
-  /// Initial state: black screen with header and "Ambil Foto Selfie" button.
+  /// Camera state: shows live camera preview with capture button (like mobile).
   Widget _buildCaptureState() {
     return Stack(
       children: [
-        // Dark background with subtle pattern
+        // Camera preview as background
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.black, Colors.grey.shade900, Colors.black],
-              ),
-            ),
-          ),
+          child: _isCameraInitialized && _controller != null
+              ? CameraPreview(_controller!)
+              : Container(
+                  color: Colors.black,
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.primary),
+                        SizedBox(height: 16),
+                        Text(
+                          'Menyiapkan kamera...',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
         ),
 
-        // Content
+        // Content overlay
         SafeArea(
           child: Column(
             children: [
               // Header with back button
               _buildHeader(),
 
-              // Center content
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Camera icon placeholder
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white24, width: 2),
-                          color: Colors.white.withValues(alpha: 0.05),
-                        ),
-                        child: const Icon(
-                          Icons.person_outline,
-                          size: 64,
-                          color: Colors.white38,
-                        ),
-                      ),
+              const Spacer(),
 
-                      const SizedBox(height: 32),
-
-                      // Instruction text
-                      const Text(
-                        'Ambil foto selfie untuk\nmelakukan presensi',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
-                          height: 1.5,
-                        ),
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      // Capture button
-                      _buildCaptureButton(),
-                    ],
+              // Instruction text
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Pastikan wajah Anda terlihat jelas',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    shadows: [Shadow(blurRadius: 8, color: Colors.black)],
                   ),
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              // Capture button
+              _buildCaptureButton(),
+
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -739,27 +780,24 @@ class _SelfiePageWebState extends State<SelfiePageWeb> {
   }
 
   Widget _buildCaptureButton() {
+    final isReady = _isCameraInitialized && !_isSubmitting;
     return GestureDetector(
-      onTap: _takePicture,
+      onTap: isReady ? _takePicture : null,
       child: Container(
         width: 80,
         height: 80,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 4),
+          border: Border.all(
+            color: isReady ? Colors.white : Colors.grey,
+            width: 4,
+          ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.camera_alt,
-              color: Colors.black87,
-              size: 28,
-            ),
+        child: Container(
+          margin: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isReady ? Colors.white : Colors.grey.shade700,
           ),
         ),
       ),

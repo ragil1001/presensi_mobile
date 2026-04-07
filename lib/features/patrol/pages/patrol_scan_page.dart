@@ -1,4 +1,5 @@
 import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,6 +13,7 @@ import '../providers/patrol_scan_provider.dart';
 import '../providers/patrol_session_provider.dart';
 import '../widgets/patrol_photo_sheet.dart';
 import 'patrol_camera_page.dart';
+import 'patrol_camera_web.dart';
 
 class PatrolScanPage extends StatefulWidget {
   const PatrolScanPage({super.key});
@@ -215,7 +217,13 @@ class _PatrolScanPageState extends State<PatrolScanPage>
 
     while (photos.length < maxPhotos && mounted) {
       if (!mounted) break;
-      final captured = await PatrolCameraPage.capture(context);
+      // Use web camera on web, in-app camera on mobile
+      final File? captured;
+      if (kIsWeb) {
+        captured = await PatrolCameraWeb.capture(context);
+      } else {
+        captured = await PatrolCameraPage.capture(context);
+      }
 
       if (captured == null) {
         // User cancelled camera

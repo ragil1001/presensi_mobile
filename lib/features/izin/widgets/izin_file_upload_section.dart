@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/in_app_camera_page.dart';
+import '../../../core/widgets/in_app_camera_web.dart';
 
 /// File upload section widget for the izin/lembur form, showing either an upload
 /// button or the selected file info with a remove button.
@@ -195,26 +196,30 @@ class IzinFileUploadSection extends StatelessWidget {
       }
     } catch (e) {
       if (!context.mounted) return;
+      debugPrint('Error picking file: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memilih file: $e')),
+        const SnackBar(content: Text('Gagal memilih file. Silakan coba lagi.')),
       );
     }
   }
 
   Future<void> _takePhoto(BuildContext context) async {
-    // Use in-app camera for mobile, fallback to image_picker for web
+    // Use in-app camera for mobile, web camera for web
     if (kIsWeb) {
-      // Web doesn't support in-app camera, use file picker with camera source
+      // Web: use image_picker camera
       try {
-        FilePickerResult? result = await FilePicker.platform.pickFiles(
-          type: FileType.image,
-          withData: true,
+        final File? photo = await InAppCameraWeb.capture(
+          context,
+          title: cameraTitle,
+          useFrontCamera: false,
+          quality: 60,
+          minWidth: 720,
+          minHeight: 720,
+          filePrefix: filePrefix,
         );
 
-        if (result != null) {
-          final platformFile = result.files.single;
-          final file = createFileFromBytes(platformFile.name, platformFile.bytes!);
-          final fileSize = await file.length();
+        if (photo != null) {
+          final fileSize = await photo.length();
 
           if (fileSize > 10 * 1024 * 1024) {
             if (!context.mounted) return;
@@ -224,12 +229,13 @@ class IzinFileUploadSection extends StatelessWidget {
             return;
           }
 
-          onFileSelected(file);
+          onFileSelected(photo);
         }
       } catch (e) {
         if (!context.mounted) return;
+        debugPrint('Error taking photo (web): $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengambil foto: $e')),
+          const SnackBar(content: Text('Gagal mengambil foto. Silakan coba lagi.')),
         );
       }
       return;
@@ -262,8 +268,9 @@ class IzinFileUploadSection extends StatelessWidget {
       }
     } catch (e) {
       if (!context.mounted) return;
+      debugPrint('Error taking photo (mobile): $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengambil foto: $e')),
+        const SnackBar(content: Text('Gagal mengambil foto. Silakan coba lagi.')),
       );
     }
   }

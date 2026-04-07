@@ -264,7 +264,12 @@ class _DataIzinPageState extends State<DataIzinPage> {
                           onRefresh: _loadData,
                           child: ListView.builder(
                             controller: _scrollController,
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.only(
+                              top: 16,
+                              left: 16,
+                              right: 16,
+                              bottom: 96, // Extra space for FAB
+                            ),
                             itemCount:
                                 filteredList.length +
                                 (izinProvider.isLoadingMore ? 1 : 0),

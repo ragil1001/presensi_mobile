@@ -32,7 +32,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2500),
     )..repeat();
   }
 
@@ -198,10 +198,18 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                     child: AnimatedBuilder(
                       animation: _controller,
                       builder: (context, _) {
-                        final double barHeight = centerButtonSize * 0.07;
-                        final double top =
-                            centerButtonSize -
-                            (centerButtonSize + barHeight) * _controller.value;
+                        // Animasi smooth: bawah -> atas, fade out di atas, muncul lagi dari bawah
+                        final t = _controller.value;
+                        // Position: 1.0 (bawah) -> 0.0 (atas)
+                        final scanPosition = 1.0 - t;
+                        // Opacity: fade in di awal, full di tengah, fade out di akhir
+                        final opacity = t < 0.1 
+                            ? t / 0.1  // fade in 0-10%
+                            : t > 0.9 
+                                ? (1.0 - t) / 0.1  // fade out 90-100%
+                                : 1.0;  // full opacity di tengah
+                        
+                        final double barHeight = centerButtonSize * 0.05;
 
                         return Container(
                           width: centerButtonSize,
@@ -229,26 +237,29 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                   ),
                                   child: const SizedBox.expand(),
                                 ),
+                                // Scan line - full width, thin, soft glow
                                 Positioned(
                                   left: 0,
                                   right: 0,
-                                  top: top,
+                                  top: (centerButtonSize - barHeight) * scanPosition - barHeight,
                                   child: Opacity(
-                                    opacity: 0.95,
+                                    opacity: opacity,
                                     child: Container(
-                                      height: barHeight,
+                                      height: barHeight * 3,
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
                                           colors: [
                                             Colors.white.withValues(alpha: 0.0),
-                                            Colors.white.withValues(
-                                              alpha: 0.85,
-                                            ),
+                                            Colors.white.withValues(alpha: 0.3),
+                                            Colors.white.withValues(alpha: 0.9),
+                                            Colors.white,
+                                            Colors.white.withValues(alpha: 0.9),
+                                            Colors.white.withValues(alpha: 0.3),
                                             Colors.white.withValues(alpha: 0.0),
                                           ],
-                                          stops: const [0.0, 0.5, 1.0],
+                                          stops: const [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0],
                                         ),
                                       ),
                                     ),

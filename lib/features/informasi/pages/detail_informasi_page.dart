@@ -1,8 +1,12 @@
 // lib/pages/detail_informasi_page.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:dio/dio.dart';
+import '../../../core/platform/web_file_opener.dart';
+import '../../../core/network/api_client.dart';
 import '../../../providers/informasi_provider.dart';
 import '../../../data/models/informasi_model.dart';
 import '../../../core/constants/app_colors.dart';
@@ -76,17 +80,51 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
     });
 
     try {
-      final provider = Provider.of<InformasiProvider>(context, listen: false);
-      final localPath = await provider.downloadFile(_informasi!);
+      if (kIsWeb) {
+        // On web: download bytes via API and open as blob in new tab
+        final response = await ApiClient().dio.get(
+          '/mobile/informasi/${_informasi!.id}/file',
+          options: Options(responseType: ResponseType.bytes),
+        );
 
-      if (localPath == null) {
-        throw Exception('Download gagal');
-      }
+        final bytes = Uint8List.fromList(response.data);
+        final fileName = _informasi!.fileName ?? 'file';
+        final ext = fileName.split('.').last.toLowerCase();
+        final mimeType = _getMimeType(ext);
+        openBlobInBrowser(bytes, fileName, mimeType);
+      } else {
+        final provider = Provider.of<InformasiProvider>(context, listen: false);
+        final localPath = await provider.downloadFile(_informasi!);
 
-      final result = await OpenFilex.open(localPath);
-      if (result.type != ResultType.done) {
-        throw Exception('Tidak dapat membuka file: ${result.message}');
+        if (localPath == null) {
+          throw Exception('Download gagal');
+        }
+
+        final result = await OpenFilex.open(localPath);
+        if (result.type != ResultType.done) {
+          throw Exception('Tidak dapat membuka file: ${result.message}');
+        }
       }
+    } on DioException catch (e) {
+      debugPrint('DioException opening file: ${e.type} - ${e.message}');
+      if (!mounted) return;
+      final statusCode = e.response?.statusCode;
+      String msg;
+      if (statusCode == 404) {
+        msg = 'File tidak ditemukan. Kemungkinan file sudah dihapus atau belum diunggah.';
+      } else if (statusCode == 401 || statusCode == 403) {
+        msg = 'Sesi Anda telah berakhir. Silakan login ulang.';
+      } else if (statusCode != null && statusCode >= 500) {
+        msg = 'Server sedang mengalami gangguan. Silakan coba lagi nanti.';
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        msg = 'Koneksi terputus. Periksa koneksi internet Anda.';
+      } else if (e.type == DioExceptionType.connectionError) {
+        msg = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else {
+        msg = 'Gagal membuka file. Silakan coba lagi.';
+      }
+      CustomSnackbar.showError(context, msg);
     } catch (e) {
       debugPrint('Error opening file: $e');
       if (!mounted) return;
@@ -99,6 +137,19 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
         });
       }
     }
+  }
+
+  String _getMimeType(String ext) {
+    return switch (ext) {
+      'pdf' => 'application/pdf',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'doc' => 'application/msword',
+      'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls' => 'application/vnd.ms-excel',
+      'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      _ => 'application/octet-stream',
+    };
   }
 
   @override

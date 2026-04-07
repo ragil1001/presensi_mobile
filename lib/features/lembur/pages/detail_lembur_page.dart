@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../core/platform/web_file_opener.dart';
 import '../../../providers/lembur_provider.dart';
 import '../../../data/models/pengajuan_lembur_model.dart';
 import '../../../core/constants/app_colors.dart';
@@ -63,15 +63,6 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
       return;
     }
 
-    if (kIsWeb) {
-      // On web, open file URL directly in browser
-      final url = Uri.parse(_lembur!.fileSklUrl!);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
     setState(() {
       _isDownloading = true;
     });
@@ -88,30 +79,36 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
 
       debugPrint('Download response: ${response.statusCode}, bytes: ${response.data.length}');
 
-      final tempDir = await getTemporaryDirectory();
-      final ext = filePath.split('.').last;
-      final tempFile = File('${tempDir.path}/lembur_file_${DateTime.now().millisecondsSinceEpoch}.$ext');
-      await tempFile.writeAsBytes(response.data);
+      final fileName = filePath.split('/').last;
 
-      debugPrint('File saved to: ${tempFile.path}');
+      if (kIsWeb) {
+        final ext = fileName.split('.').last.toLowerCase();
+        final mimeType = _getMimeType(ext);
+        openBlobInBrowser(Uint8List.fromList(response.data), fileName, mimeType);
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final ext = filePath.split('.').last;
+        final tempFile = File('${tempDir.path}/lembur_file_${DateTime.now().millisecondsSinceEpoch}.$ext');
+        await tempFile.writeAsBytes(response.data);
 
-      final result = await OpenFilex.open(tempFile.path);
-      if (result.type != ResultType.done && mounted) {
-        debugPrint('OpenFilex result: ${result.type} - ${result.message}');
-        CustomSnackbar.showError(
-          context,
-          'Tidak dapat membuka file: ${result.message}',
-        );
+        debugPrint('File saved to: ${tempFile.path}');
+
+        final result = await OpenFilex.open(tempFile.path);
+        if (result.type != ResultType.done && mounted) {
+          debugPrint('OpenFilex result: ${result.type} - ${result.message}');
+          CustomSnackbar.showError(
+            context,
+            'Tidak dapat membuka file. Pastikan aplikasi pendukung sudah terpasang.',
+          );
+        }
       }
     } on DioException catch (e) {
       debugPrint('DioException downloading file: ${e.type} - ${e.message}');
       debugPrint('Response status: ${e.response?.statusCode}');
       debugPrint('Response data: ${e.response?.data}');
       if (!mounted) return;
-      CustomSnackbar.showError(
-        context,
-        'Gagal mengunduh file (${e.response?.statusCode ?? e.type})',
-      );
+      final msg = _getFileErrorMessage(e);
+      CustomSnackbar.showError(context, msg);
     } on MissingPluginException catch (_) {
       debugPrint('open_filex plugin not registered - need full rebuild (flutter clean && flutter run)');
       if (!mounted) return;
@@ -130,6 +127,36 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
         });
       }
     }
+  }
+
+  String _getFileErrorMessage(DioException e) {
+    final statusCode = e.response?.statusCode;
+    if (statusCode == 404) {
+      return 'File tidak ditemukan. Kemungkinan file sudah dihapus atau belum diunggah.';
+    } else if (statusCode == 401 || statusCode == 403) {
+      return 'Sesi Anda telah berakhir. Silakan login ulang.';
+    } else if (statusCode != null && statusCode >= 500) {
+      return 'Server sedang mengalami gangguan. Silakan coba lagi nanti.';
+    } else if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Koneksi terputus. Periksa koneksi internet Anda.';
+    } else if (e.type == DioExceptionType.connectionError) {
+      return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+    }
+    return 'Gagal mengunduh file. Silakan coba lagi.';
+  }
+
+  String _getMimeType(String ext) {
+    return switch (ext) {
+      'pdf' => 'application/pdf',
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'doc' => 'application/msword',
+      'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls' => 'application/vnd.ms-excel',
+      'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      _ => 'application/octet-stream',
+    };
   }
 
   @override

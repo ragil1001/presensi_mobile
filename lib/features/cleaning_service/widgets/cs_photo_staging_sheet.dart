@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/in_app_camera_page.dart';
+import '../../../core/widgets/in_app_camera_web.dart';
 import '../data/models/cs_cleaning_task_model.dart';
+import '../utils/photo_metadata_validator.dart';
 import 'cs_network_image.dart';
 
 class CsPhotoStagingSheet extends StatefulWidget {
@@ -14,6 +16,12 @@ class CsPhotoStagingSheet extends StatefulWidget {
   final Future<bool> Function(List<File> files) onUpload;
   final List<TaskPhoto> existingPhotos;
   final Future<bool> Function(int photoId)? onDeletePhoto;
+  
+  /// Task date for validating gallery photos (format: YYYY-MM-DD)
+  final String? taskDate;
+  
+  /// Shift end time for validating gallery photos (format: HH:MM)
+  final String? shiftEndTime;
 
   const CsPhotoStagingSheet({
     super.key,
@@ -21,6 +29,8 @@ class CsPhotoStagingSheet extends StatefulWidget {
     required this.onUpload,
     this.existingPhotos = const [],
     this.onDeletePhoto,
+    this.taskDate,
+    this.shiftEndTime,
   });
 
   static Future<bool?> show(
@@ -29,6 +39,8 @@ class CsPhotoStagingSheet extends StatefulWidget {
     required Future<bool> Function(List<File> files) onUpload,
     List<TaskPhoto> existingPhotos = const [],
     Future<bool> Function(int photoId)? onDeletePhoto,
+    String? taskDate,
+    String? shiftEndTime,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -39,6 +51,8 @@ class CsPhotoStagingSheet extends StatefulWidget {
         onUpload: onUpload,
         existingPhotos: existingPhotos,
         onDeletePhoto: onDeletePhoto,
+        taskDate: taskDate,
+        shiftEndTime: shiftEndTime,
       ),
     );
   }
@@ -54,6 +68,7 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
   bool _isUploading = false;
   bool _isCompressing = false;
   bool _isDeleting = false;
+  bool _isValidating = false;
 
   @override
   void initState() {
@@ -148,29 +163,22 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
 
   Future<void> _captureFromCameraWeb() async {
     while (true) {
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-        imageQuality: 60,
-        maxWidth: 720,
-        maxHeight: 720,
+      // Use InAppCameraWeb for proper camera UI on web
+      final File? photo = await InAppCameraWeb.capture(
+        context,
+        title: 'Ambil Foto Bukti',
+        useFrontCamera: false,
+        quality: 60,
+        minWidth: 800,
+        minHeight: 600,
+        filePrefix: 'cs_photo',
       );
 
       if (photo == null || !mounted) break;
 
-      setState(() => _isCompressing = true);
-      final rawFile = createFileFromBytes(photo.name, await photo.readAsBytes());
-      final compressed = await _compressFile(rawFile);
-      if (!mounted) return;
-
-      if (compressed != null) {
-        setState(() {
-          _stagedFiles.add(compressed);
-          _isCompressing = false;
-        });
-      } else if (mounted) {
-        setState(() => _isCompressing = false);
-      }
+      setState(() {
+        _stagedFiles.add(photo);
+      });
 
       if (!mounted) return;
       final takeAnother = await showDialog<bool>(
@@ -217,17 +225,155 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
 
     if (photos.isEmpty || !mounted) return;
 
-    setState(() => _isCompressing = true);
+    // Check if we need to validate photo timestamps
+    final shouldValidate = widget.taskDate != null && 
+                          widget.shiftEndTime != null && 
+                          !kIsWeb;
+
+    setState(() {
+      _isCompressing = true;
+      if (shouldValidate) _isValidating = true;
+    });
+
+    final List<String> rejectedPhotos = [];
+
     for (final photo in photos) {
+      final bytes = await photo.readAsBytes();
+      
+      // Validate photo timestamp if shift info is provided
+      if (shouldValidate) {
+        final validation = await PhotoMetadataValidator.validatePhotoTime(
+          photoBytes: bytes,
+          taskDate: widget.taskDate!,
+          shiftEndTime: widget.shiftEndTime!,
+        );
+
+        if (!validation.isValid) {
+          rejectedPhotos.add(photo.name);
+          // Show error dialog for this specific photo
+          if (mounted) {
+            await _showPhotoRejectedDialog(photo.name, validation.errorMessage!);
+          }
+          continue; // Skip this photo
+        }
+      }
+
       final rawFile = kIsWeb
-          ? createFileFromBytes(photo.name, await photo.readAsBytes())
+          ? createFileFromBytes(photo.name, bytes)
           : File(photo.path);
       final compressed = await _compressFile(rawFile);
       if (compressed != null && mounted) {
         _stagedFiles.add(compressed);
       }
     }
-    if (mounted) setState(() => _isCompressing = false);
+
+    if (mounted) {
+      setState(() {
+        _isCompressing = false;
+        _isValidating = false;
+      });
+
+      // Show summary if some photos were rejected
+      if (rejectedPhotos.isNotEmpty && photos.length > rejectedPhotos.length) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${photos.length - rejectedPhotos.length} foto berhasil ditambahkan, '
+              '${rejectedPhotos.length} foto ditolak karena melebihi batas waktu.',
+            ),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Show dialog when photo is rejected due to timestamp validation
+  Future<void> _showPhotoRejectedDialog(String fileName, String message) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, 
+                 color: AppColors.error, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Foto Tidak Valid',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Foto: $fileName',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textTertiary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.info.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.info.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, 
+                       color: AppColors.info, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Gunakan kamera untuk mengambil foto baru yang sesuai.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.info,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Mengerti'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _removePhoto(int index) {
@@ -367,13 +513,13 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              if (_isCompressing)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+              if (_isCompressing || _isValidating)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
@@ -382,10 +528,14 @@ class _CsPhotoStagingSheetState extends State<CsPhotoStagingSheet> {
                               AlwaysStoppedAnimation<Color>(AppColors.primary),
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Text('Mengompres foto...',
-                          style: TextStyle(
-                              fontSize: 12, color: AppColors.textTertiary)),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isValidating 
+                            ? 'Memvalidasi waktu foto...' 
+                            : 'Mengompres foto...',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textTertiary),
+                      ),
                     ],
                   ),
                 ),

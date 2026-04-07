@@ -6,10 +6,15 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
+/// Environment flag for development mode
+/// Set to true when building for development, false for production
+const bool kFirebaseDev = bool.fromEnvironment('FIREBASE_DEV', defaultValue: false);
+
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      // Use dev or production web config based on environment
+      return kFirebaseDev ? webDev : web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -31,6 +36,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'qms-system-9267a.firebasestorage.app',
   );
 
+  /// Production web config
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCnTb8HEx-YCPgEXhldVBSOOo0Smkc-4d0',
     appId: '1:722838385103:web:374eeabc11b60679f362ba',
@@ -39,6 +45,17 @@ class DefaultFirebaseOptions {
     storageBucket: 'qms-system-9267a.firebasestorage.app',
     authDomain: 'qms-system-9267a.firebaseapp.com',
     measurementId: 'G-TBD00168CW',
+  );
+
+  /// Development web config (qmsiosweb-dev.web.app)
+  static const FirebaseOptions webDev = FirebaseOptions(
+    apiKey: 'AIzaSyCnTb8HEx-YCPgEXhldVBSOOo0Smkc-4d0',
+    appId: '1:722838385103:web:0f428be41aae58aef362ba',
+    messagingSenderId: '722838385103',
+    projectId: 'qms-system-9267a',
+    storageBucket: 'qms-system-9267a.firebasestorage.app',
+    authDomain: 'qms-system-9267a.firebaseapp.com',
+    measurementId: 'G-7D9S8HGHTD',
   );
 
   // TODO: Jika ada iOS native di masa depan, tambahkan config iOS di sini.

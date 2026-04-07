@@ -839,10 +839,32 @@ class _FullFotoPageState extends State<FullFotoPage> {
           _isLoading = false;
         });
       }
+    } on DioException catch (e) {
+      if (mounted) {
+        String errorMsg;
+        final statusCode = e.response?.statusCode;
+        if (statusCode == 404) {
+          errorMsg = 'Foto tidak ditemukan. Kemungkinan foto sudah dihapus dari server.';
+        } else if (statusCode == 401 || statusCode == 403) {
+          errorMsg = 'Sesi Anda telah berakhir. Silakan login ulang.';
+        } else if (statusCode != null && statusCode >= 500) {
+          errorMsg = 'Server sedang mengalami gangguan. Silakan coba lagi nanti.';
+        } else if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError) {
+          errorMsg = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+        } else {
+          errorMsg = 'Gagal memuat foto. Silakan coba lagi.';
+        }
+        setState(() {
+          _error = errorMsg;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Gagal memuat data. Silakan coba lagi.';
+          _error = 'Gagal memuat foto. Silakan coba lagi.';
           _isLoading = false;
         });
       }
@@ -868,20 +890,30 @@ class _FullFotoPageState extends State<FullFotoPage> {
                             color: Colors.white54,
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            'Gagal memuat foto',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          const SizedBox(height: 8),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
                             child: Text(
                               _error!,
                               style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
+                                color: Colors.white70,
+                                fontSize: 14,
                               ),
                               textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _isLoading = true;
+                                _error = null;
+                              });
+                              _loadImage();
+                            },
+                            icon: const Icon(Icons.refresh, color: Colors.white70),
+                            label: const Text(
+                              'Coba Lagi',
+                              style: TextStyle(color: Colors.white70),
                             ),
                           ),
                         ],

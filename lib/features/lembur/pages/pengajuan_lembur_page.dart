@@ -11,6 +11,7 @@ import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/custom_confirm_dialog.dart';
 import '../../../core/widgets/custom_popup_menu.dart';
 import '../../../core/widgets/custom_filter_chip.dart';
+import '../../../core/widgets/custom_bottom_sheet.dart';
 import '../../../core/widgets/shimmer_loading.dart';
 import '../../../core/widgets/error_state_widget.dart';
 import 'form_pengajuan_lembur_page.dart';
@@ -25,6 +26,8 @@ class PengajuanLemburPage extends StatefulWidget {
 
 class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
   String _filterTab = "Semua";
+  String _dateFilter = "Semua";
+  DateTimeRange? _customRange;
   DateTime? _lastRefreshTime;
   late ScrollController _scrollController;
 
@@ -285,7 +288,12 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                           },
                           child: ListView.builder(
                             controller: _scrollController,
-                            padding: EdgeInsets.all(screenWidth * 0.04),
+                            padding: EdgeInsets.only(
+                              top: screenWidth * 0.04,
+                              left: screenWidth * 0.04,
+                              right: screenWidth * 0.04,
+                              bottom: screenWidth * 0.04 + 80, // Extra space for FAB
+                            ),
                             itemCount:
                                 filteredList.length +
                                 (lemburProvider.isLoadingMore ? 1 : 0),
@@ -310,6 +318,22 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
               ],
             );
           },
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showDateFilterDialog,
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+        label: Text(
+          _dateFilter == "Semua" ? "Filter Tanggal" : _dateFilter,
+          style: TextStyle(
+            fontSize: (screenWidth * 0.032).clamp(11.0, 14.0),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        icon: Icon(
+          Icons.filter_alt,
+          size: (screenWidth * 0.05).clamp(18.0, 24.0),
         ),
       ),
     );
@@ -464,18 +488,123 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
   }
 
   List _getFilteredList(LemburProvider provider) {
+    List baseList;
     switch (_filterTab) {
       case "Pengajuan":
-        return provider.pengajuanList;
+        baseList = provider.pengajuanList;
+        break;
       case "Disetujui":
-        return provider.disetujuiList;
+        baseList = provider.disetujuiList;
+        break;
       case "Ditolak":
-        return provider.ditolakList;
+        baseList = provider.ditolakList;
+        break;
       case "Dibatalkan":
-        return provider.dibatalkanList;
+        baseList = provider.dibatalkanList;
+        break;
       default:
-        return provider.lemburList;
+        baseList = provider.lemburList;
     }
+    
+    // Apply date filter
+    return _applyDateFilter(baseList);
+  }
+
+  List _applyDateFilter(List list) {
+    if (_dateFilter == "Semua") return list;
+    
+    final now = DateTime.now();
+    
+    if (_dateFilter == "Bulan Ini") {
+      return list.where((lembur) {
+        return lembur.tanggal.month == now.month &&
+            lembur.tanggal.year == now.year;
+      }).toList();
+    }
+    
+    if (_dateFilter == "Bulan Lalu") {
+      final lastMonth = DateTime(now.year, now.month - 1);
+      return list.where((lembur) {
+        return lembur.tanggal.month == lastMonth.month &&
+            lembur.tanggal.year == lastMonth.year;
+      }).toList();
+    }
+    
+    if (_dateFilter == "Custom" && _customRange != null) {
+      return list.where((lembur) {
+        return lembur.tanggal.isAfter(
+                _customRange!.start.subtract(const Duration(days: 1))) &&
+            lembur.tanggal.isBefore(
+                _customRange!.end.add(const Duration(days: 1)));
+      }).toList();
+    }
+    
+    return list;
+  }
+
+  Future<void> _showDateFilterDialog() async {
+    await CustomBottomSheet.show(
+      context: context,
+      title: 'Filter Tanggal',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildDateFilterOption("Semua", Icons.all_inclusive),
+          _buildDateFilterOption("Bulan Ini", Icons.calendar_today),
+          _buildDateFilterOption("Bulan Lalu", Icons.calendar_month),
+          ListTile(
+            leading: const Icon(Icons.date_range, color: AppColors.primary),
+            title: const Text("Pilih Tanggal Sendiri"),
+            trailing: _dateFilter == "Custom"
+                ? const Icon(Icons.check_circle, color: AppColors.primary)
+                : null,
+            onTap: () async {
+              Navigator.pop(context);
+              final range = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+                initialDateRange: _customRange,
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.light(
+                        primary: AppColors.primary,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (range != null) {
+                setState(() {
+                  _dateFilter = "Custom";
+                  _customRange = range;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateFilterOption(String label, IconData icon) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.primary),
+      title: Text(label),
+      trailing: _dateFilter == label
+          ? const Icon(Icons.check_circle, color: AppColors.primary)
+          : null,
+      onTap: () {
+        setState(() {
+          _dateFilter = label;
+          _customRange = null;
+        });
+        Navigator.pop(context);
+      },
+    );
   }
 
   Widget _buildLemburCard(lembur, double screenWidth) {

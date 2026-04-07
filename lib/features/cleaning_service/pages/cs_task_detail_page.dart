@@ -51,6 +51,10 @@ class _CsTaskDetailPageState extends State<CsTaskDetailPage> {
         ? (detail?.beforePhotos ?? [])
         : (detail?.afterPhotos ?? []);
 
+    // Get task date and shift end time for photo validation
+    final taskDate = provider.taskList?.tanggal;
+    final shiftEndTime = detail?.shift?.waktuSelesai;
+
     final result = await CsPhotoStagingSheet.show(
       context,
       title: 'Upload Foto ${tipe == 'BEFORE' ? 'Before' : 'After'}',
@@ -59,6 +63,8 @@ class _CsTaskDetailPageState extends State<CsTaskDetailPage> {
       onUpload: (List<File> files) async {
         return await provider.uploadFoto(widget.taskId, files, tipe);
       },
+      taskDate: taskDate,
+      shiftEndTime: shiftEndTime,
     );
 
     if (!mounted) return;

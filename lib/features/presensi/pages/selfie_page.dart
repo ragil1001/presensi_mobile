@@ -672,6 +672,36 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                               const SizedBox(height: 8),
                               _buildInfoRow('Waktu', waktu),
                             ],
+                            if (data?['status'] == 'LEMBUR_PENDING') ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.orange.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, color: Colors.orange.shade700, size: 18),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Silakan mengajukan pengajuan lembur dengan mengunggah SKL.',
+                                        style: TextStyle(
+                                          fontSize: messageSize * 0.9,
+                                          color: Colors.orange.shade800,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -300,7 +300,12 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                     onRefresh: () async => _loadData(),
                     child: ListView.builder(
                       controller: _scrollController,
-                      padding: EdgeInsets.all(padding),
+                      padding: EdgeInsets.only(
+                        top: padding,
+                        left: padding,
+                        right: padding,
+                        bottom: padding + 80, // Extra space for FAB
+                      ),
                       itemCount: _getItemCount(provider),
                       itemBuilder: (context, index) {
                         // Loading more indicator

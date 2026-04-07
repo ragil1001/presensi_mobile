@@ -1,4 +1,5 @@
 import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -7,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_font_size.dart';
 import '../pages/patrol_camera_page.dart';
+import '../pages/patrol_camera_web.dart';
 
 class PatrolPhotoSheet extends StatefulWidget {
   final List<File> existingPhotos;
@@ -83,10 +85,15 @@ class _PatrolPhotoSheetState extends State<PatrolPhotoSheet> {
     if (_photos.length >= widget.maxPhotos) return;
     setState(() => _isProcessing = true);
     try {
-      // Use in-app camera instead of external camera
-      final captured = await PatrolCameraPage.capture(context);
+      // Use web camera on web, in-app camera on mobile
+      final File? captured;
+      if (kIsWeb) {
+        captured = await PatrolCameraWeb.capture(context);
+      } else {
+        captured = await PatrolCameraPage.capture(context);
+      }
       if (captured != null && mounted) {
-        setState(() => _photos.add(captured));
+        setState(() => _photos.add(captured!));
       }
     } catch (_) {}
     if (mounted) {

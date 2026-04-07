@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "qms-system-9267a"
-  }
+  },
+  "targets": {
+    "qms-system-9267a": {
+      "hosting": {
+        "production": [
+          "qmsiosweb"
+        ],
+        "development": [
+          "qmsiosweb-dev"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
