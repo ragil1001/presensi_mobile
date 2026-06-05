@@ -1,7 +1,7 @@
 class ApiConfig {
   // Change this to your server IP/domain in production
   // For Android emulator use 10.0.2.2, for real device use your PC's local IP
-  static const String baseUrl = 'https://api.qmssystem.app/api/v1';
+  static const String baseUrl = 'https://api.myprojectsystem.my.id/api/v1';
   // static const String baseUrl = 'http://10.0.2.2:80/api/v1'; // Android emulator
   // static const String baseUrl = 'http://10.161.195.254:80/api/v1'; // Real device (WiFi IP)
 

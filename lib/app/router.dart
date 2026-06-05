@@ -26,6 +26,8 @@ import '../features/patrol/pages/patrol_main_page.dart';
 import '../features/patrol/pages/patrol_scan_page.dart';
 import '../features/patrol/pages/patrol_report_page.dart';
 import '../features/patrol/pages/patrol_history_detail_page.dart';
+import '../features/slip_gaji/pages/slip_gaji_page.dart';
+import '../features/slip_gaji/pages/slip_gaji_detail_page.dart';
 
 export '../features/home/pages/home_page.dart' show HomePage;
 export '../features/presensi/pages/data_absensi_page.dart' show DataAbsensiPage;
@@ -44,6 +46,7 @@ Map<String, WidgetBuilder> buildAppRoutes(Widget mainApp) {
     AppRoutes.notifications: (context) => const NotificationPage(),
     AppRoutes.historyAbsensi: (context) => const HistoryAbsensiPage(),
     AppRoutes.informasi: (context) => const InformasiPage(),
+    AppRoutes.slipGaji: (context) => const SlipGajiPage(),
     AppRoutes.csHome: (context) => const CsMainPage(),
     AppRoutes.csAreaSelection: (context) => const CsAreaSelectionPage(),
     AppRoutes.patrolHome: (context) => const PatrolMainPage(),
@@ -116,6 +119,16 @@ Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     if (sessionId != null) {
       return _createOptimizedRoute(
         PatrolHistoryDetailPage(sessionId: sessionId),
+        settings,
+      );
+    }
+  }
+
+  if (settings.name == AppRoutes.slipGajiDetail) {
+    final periodeId = settings.arguments as int?;
+    if (periodeId != null) {
+      return _createOptimizedRoute(
+        SlipGajiDetailPage(periodeId: periodeId),
         settings,
       );
     }

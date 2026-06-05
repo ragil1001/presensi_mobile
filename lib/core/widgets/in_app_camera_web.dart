@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:presensi_mobile/core/platform/platform_io.dart';
+import 'package:presensi_mobile/core/platform/web_file.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -144,8 +145,9 @@ class _InAppCameraWebState extends State<InAppCameraWeb> {
       if (confirmed == true && mounted) {
         // Compress and return
         final compressedBytes = await _compressImage(bytes);
-        final fileName = '${widget.filePrefix}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final file = File.fromBytes(fileName, compressedBytes);
+        final fileName =
+            '${widget.filePrefix}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final file = createFileFromBytes(fileName, compressedBytes);
         if (mounted) {
           Navigator.pop(context, file);
         }
@@ -295,8 +297,8 @@ class _InAppCameraWebState extends State<InAppCameraWeb> {
               child: _errorMessage != null
                   ? _buildErrorView(sw)
                   : !_isCameraInitialized
-                      ? _buildLoadingView()
-                      : _buildCameraView(),
+                  ? _buildLoadingView()
+                  : _buildCameraView(),
             ),
             _buildBottomControls(sw),
           ],
@@ -349,12 +351,19 @@ class _InAppCameraWebState extends State<InAppCameraWeb> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.camera_alt_outlined, color: AppColors.error, size: sw * 0.15),
+            Icon(
+              Icons.camera_alt_outlined,
+              color: AppColors.error,
+              size: sw * 0.15,
+            ),
             SizedBox(height: sw * 0.04),
             Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: AppFontSize.body(sw)),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: AppFontSize.body(sw),
+              ),
             ),
             SizedBox(height: sw * 0.06),
             ElevatedButton.icon(
@@ -405,20 +414,27 @@ class _InAppCameraWebState extends State<InAppCameraWeb> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: _isCameraInitialized && !_isCapturing ? Colors.white : Colors.grey,
+                color: _isCameraInitialized && !_isCapturing
+                    ? Colors.white
+                    : Colors.grey,
                 width: 4,
               ),
             ),
             child: _isCapturing
                 ? const Padding(
                     padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   )
                 : Container(
                     margin: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _isCameraInitialized ? Colors.white : Colors.grey.shade700,
+                      color: _isCameraInitialized
+                          ? Colors.white
+                          : Colors.grey.shade700,
                     ),
                   ),
           ),

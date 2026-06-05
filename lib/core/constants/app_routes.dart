@@ -14,6 +14,10 @@ class AppRoutes {
   static const String informasi = '/informasi'; // ✅ NEW
   static const String detailInformasi = '/detail-informasi'; // ✅ NEW
 
+  // ─── Slip Gaji ──────────────────────────────────────────────────
+  static const String slipGaji = '/slip-gaji';
+  static const String slipGajiDetail = '/slip-gaji/detail';
+
   // ─── Cleaning Service ───────────────────────────────────────────
   static const String csHome = '/cs/home';
   static const String csAreaSelection = '/cs/area-selection';

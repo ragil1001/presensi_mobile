@@ -20,6 +20,7 @@ import 'providers/notification_provider.dart';
 import 'providers/lembur_provider.dart';
 import 'providers/informasi_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'providers/slip_gaji_provider.dart';
 import 'features/cleaning_service/providers/cs_beranda_provider.dart';
 import 'features/cleaning_service/providers/cs_task_provider.dart';
 import 'features/cleaning_service/providers/cs_area_provider.dart';
@@ -105,6 +106,17 @@ void _handleFcmNavigation(Map<String, dynamic> data) {
       final informasiId = int.tryParse(data['informasi_id'] ?? '');
       if (informasiId != null) {
         navigator.pushNamed('/informasi');
+      }
+      break;
+    case 'slip_gaji_published':
+      final periodeId = int.tryParse(data['periode_id']?.toString() ?? '');
+      if (periodeId != null) {
+        navigator.pushNamed(
+          AppRoutes.slipGajiDetail,
+          arguments: periodeId,
+        );
+      } else {
+        navigator.pushNamed(AppRoutes.slipGaji);
       }
       break;
     case 'reminder':
@@ -218,6 +230,7 @@ List<SingleChildWidget> buildAppProviders() {
     ChangeNotifierProvider(create: (_) => NotificationProvider()),
     ChangeNotifierProvider(create: (_) => InformasiProvider()),
     ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
+    ChangeNotifierProvider(create: (_) => SlipGajiProvider()),
     ChangeNotifierProvider(create: (_) => CsBerandaProvider()),
     ChangeNotifierProvider(create: (_) => CsTaskProvider()),
     ChangeNotifierProvider(create: (_) => CsAreaProvider()),

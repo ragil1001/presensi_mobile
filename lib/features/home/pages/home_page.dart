@@ -572,6 +572,22 @@ class _HomePageState extends State<HomePage>
                                             }
                                           },
                                         ),
+                                        SizedBox(width: screenWidth * 0.04),
+                                        HomeMenuCard(
+                                          assetPath: 'assets/informasi.webp',
+                                          label: 'Slip Gaji',
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
+                                          onTap: () async {
+                                            await Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.slipGaji,
+                                            );
+                                            if (mounted) {
+                                              _refreshAllData();
+                                            }
+                                          },
+                                        ),
                                         if (presensiData?.hasCsAccess ==
                                             true) ...[
                                           SizedBox(width: screenWidth * 0.04),
