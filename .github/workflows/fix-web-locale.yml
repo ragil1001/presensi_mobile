@@ -1,0 +1,42 @@
+name: Fix web-compatible Indonesian locale
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-web-locale.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-locale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Replace invalid browser locale identifiers
+        run: |
+          grep -RIl "id_ID" lib --include='*.dart' | while read -r file; do
+            sed -i 's/id_ID/id/g' "$file"
+          done
+
+      - name: Verify replacements
+        run: |
+          if grep -R "id_ID" lib --include='*.dart'; then
+            echo "Invalid id_ID locale remains in Dart source"
+            exit 1
+          fi
+          grep -R "initializeDateFormatting" lib/main.dart
+
+      - name: Commit compatibility fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: use web-compatible Indonesian locale identifiers"
+          git push
