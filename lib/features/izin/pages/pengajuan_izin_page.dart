@@ -720,7 +720,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                                 child: Text(
                                   DateFormat(
                                     'dd MMM yyyy',
-                                    'id_ID',
+                                    'id',
                                   ).format(izin.tanggalMulai),
                                   style: TextStyle(
                                     fontSize: bodyFontSize,
@@ -744,7 +744,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                                 child: Text(
                                   DateFormat(
                                     'dd MMM yyyy',
-                                    'id_ID',
+                                    'id',
                                   ).format(izin.tanggalSelesai),
                                   style: TextStyle(
                                     fontSize: bodyFontSize,
@@ -779,7 +779,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                   children: [
                     Flexible(
                       child: Text(
-                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(izin.createdAt)}',
+                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id').format(izin.createdAt)}',
                         style: TextStyle(
                           fontSize: smallFontSize,
                           color: Colors.grey.shade600,

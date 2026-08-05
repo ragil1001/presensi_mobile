@@ -69,7 +69,7 @@ class IzinDateRangeSelector extends StatelessWidget {
                         ? 'Pilih tanggal'
                         : DateFormat(
                             'dd MMMM yyyy',
-                            'id_ID',
+                            'id',
                           ).format(tanggalMulai!),
                     style: TextStyle(
                       fontSize: inputFontSize,
@@ -124,7 +124,7 @@ class IzinDateRangeSelector extends StatelessWidget {
                         ? 'Pilih tanggal'
                         : DateFormat(
                             'dd MMMM yyyy',
-                            'id_ID',
+                            'id',
                           ).format(tanggalSelesai!),
                     style: TextStyle(
                       fontSize: inputFontSize,

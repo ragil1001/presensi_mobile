@@ -81,7 +81,7 @@ class _JadwalPageState extends State<JadwalPage> {
 
     while (currentDate.isBefore(endDate)) {
       final periodStart = DateTime(currentDate.year, currentDate.month, 1);
-      final label = DateFormat('MMMM yyyy', 'id_ID').format(periodStart);
+      final label = DateFormat('MMMM yyyy', 'id').format(periodStart);
 
       periods.add(
         PeriodOption(

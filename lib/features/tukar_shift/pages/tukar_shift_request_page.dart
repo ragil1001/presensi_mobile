@@ -235,7 +235,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                             ? 'Filter Tanggal'
                             : DateFormat(
                                 'dd MMMM yyyy',
-                                'id_ID',
+                                'id',
                               ).format(_selectedDate!),
                         style: TextStyle(fontSize: bodyFontSize),
                       ),
@@ -497,7 +497,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                     Text(
                       DateFormat(
                         'MMM',
-                        'id_ID',
+                        'id',
                       ).format(shift.tanggal).toUpperCase(),
                       style: TextStyle(
                         fontSize: (screenWidth * 0.026).clamp(9.0, 10.0),

@@ -477,7 +477,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                   Text(
                     DateFormat(
                       'dd MMMM yyyy, HH:mm',
-                      'id_ID',
+                      'id',
                     ).format(_izin!.diprosesPada!),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
@@ -538,7 +538,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               'Mulai Dari',
               DateFormat(
                 'EEEE, dd MMMM yyyy',
-                'id_ID',
+                'id',
               ).format(_izin!.tanggalMulai),
               Icons.calendar_today,
             ),
@@ -547,7 +547,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               'Sampai',
               DateFormat(
                 'EEEE, dd MMMM yyyy',
-                'id_ID',
+                'id',
               ).format(_izin!.tanggalSelesai),
               Icons.event,
             ),
@@ -795,7 +795,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               'Pengajuan Dibuat',
               DateFormat(
                 'dd MMMM yyyy, HH:mm',
-                'id_ID',
+                'id',
               ).format(_izin!.createdAt),
               Icons.send,
               AppColors.primary,
@@ -811,7 +811,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                     : 'Dibatalkan',
                 DateFormat(
                   'dd MMMM yyyy, HH:mm',
-                  'id_ID',
+                  'id',
                 ).format(_izin!.diprosesPada!),
                 _izin!.status == 'disetujui'
                     ? Icons.check_circle

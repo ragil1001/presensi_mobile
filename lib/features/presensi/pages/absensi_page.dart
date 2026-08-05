@@ -56,7 +56,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    Intl.defaultLocale = 'id_ID';
+    Intl.defaultLocale = 'id';
 
     _securityManager = SecurityManager(
       onStateChanged: (state) {
@@ -376,7 +376,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
   String _todayString() {
     final now = DateTime.now();
-    return DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(now);
+    return DateFormat('EEEE, d MMMM yyyy', 'id').format(now);
   }
 
   void _handlePresensiButton() {

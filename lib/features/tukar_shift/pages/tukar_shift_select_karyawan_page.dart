@@ -252,7 +252,7 @@ class _TukarShiftSelectKaryawanPageState
                               Text(
                                 DateFormat(
                                   'EEEE, dd MMMM yyyy',
-                                  'id_ID',
+                                  'id',
                                 ).format(myShift.tanggal),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -342,7 +342,7 @@ class _TukarShiftSelectKaryawanPageState
                                 ? 'Pilih Tanggal Shift'
                                 : DateFormat(
                                     'dd MMMM yyyy',
-                                    'id_ID',
+                                    'id',
                                   ).format(_selectedDate!),
                             style: TextStyle(fontSize: bodyFontSize),
                           ),

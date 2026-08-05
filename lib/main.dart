@@ -183,7 +183,7 @@ Future<void> main() async {
         ?.createNotificationChannel(_channel);
   }
 
-  await initializeDateFormatting('id_ID', null);
+  await initializeDateFormatting('id', null);
   runApp(const MyApp());
 }
 

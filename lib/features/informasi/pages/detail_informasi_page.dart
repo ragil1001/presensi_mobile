@@ -254,7 +254,7 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
               _informasi!.dikirimAt != null
                   ? DateFormat(
                       'EEEE, dd MMMM yyyy • HH:mm',
-                      'id_ID',
+                      'id',
                     ).format(_informasi!.dikirimAt!)
                   : '-',
               Icons.schedule,
@@ -274,7 +274,7 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
                 'Dibaca pada',
                 DateFormat(
                   'EEEE, dd MMMM yyyy • HH:mm',
-                  'id_ID',
+                  'id',
                 ).format(_informasi!.readAt!),
                 Icons.access_time,
               ),
@@ -475,7 +475,7 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
               _informasi!.dikirimAt != null
                   ? DateFormat(
                       'dd MMMM yyyy, HH:mm',
-                      'id_ID',
+                      'id',
                     ).format(_informasi!.dikirimAt!)
                   : '-',
               Icons.send,
@@ -487,7 +487,7 @@ class _DetailInformasiPageState extends State<DetailInformasiPage> {
                 'Dibaca',
                 DateFormat(
                   'dd MMMM yyyy, HH:mm',
-                  'id_ID',
+                  'id',
                 ).format(_informasi!.readAt!),
                 Icons.check_circle,
                 AppColors.success,

@@ -1217,7 +1217,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(request.tanggalRequest)}',
+                      'Diajukan: ${DateFormat('dd MMM yyyy', 'id').format(request.tanggalRequest)}',
                       style: TextStyle(
                         fontSize: smallFontSize,
                         color: AppColors.textHint,
@@ -1287,7 +1287,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           ),
           SizedBox(height: screenWidth * 0.015),
           Text(
-            DateFormat('dd MMM yyyy', 'id_ID').format(tanggal),
+            DateFormat('dd MMM yyyy', 'id').format(tanggal),
             style: TextStyle(
               fontSize: (screenWidth * 0.029).clamp(10.0, 11.0),
               fontWeight: FontWeight.w600,

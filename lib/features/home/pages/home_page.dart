@@ -53,14 +53,14 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    _currentDate = DateFormat('d MMMM yyyy', 'id_ID').format(DateTime.now());
+    _currentDate = DateFormat('d MMMM yyyy', 'id').format(DateTime.now());
 
     _dateTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
         setState(() {
           _currentDate = DateFormat(
             'd MMMM yyyy',
-            'id_ID',
+            'id',
           ).format(DateTime.now());
         });
       }

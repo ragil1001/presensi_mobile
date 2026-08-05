@@ -300,7 +300,7 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
                   Text(
                     DateFormat(
                       'dd MMMM yyyy, HH:mm',
-                      'id_ID',
+                      'id',
                     ).format(_lembur!.diprosesPada!),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
@@ -387,7 +387,7 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
               'Tanggal Lembur',
               DateFormat(
                 'EEEE, dd MMMM yyyy',
-                'id_ID',
+                'id',
               ).format(_lembur!.tanggal),
               Icons.calendar_today,
             ),
@@ -827,7 +827,7 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
               'Pengajuan Dibuat',
               DateFormat(
                 'dd MMMM yyyy, HH:mm',
-                'id_ID',
+                'id',
               ).format(_lembur!.createdAt),
               Icons.send,
               AppColors.primary,
@@ -842,7 +842,7 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
                     : 'Dibatalkan',
                 DateFormat(
                   'dd MMMM yyyy, HH:mm',
-                  'id_ID',
+                  'id',
                 ).format(_lembur!.diprosesPada!),
                 _lembur!.status == 'disetujui'
                     ? Icons.check_circle

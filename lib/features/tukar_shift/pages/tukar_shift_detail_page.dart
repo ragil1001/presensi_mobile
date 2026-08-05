@@ -141,7 +141,7 @@ class _TukarShiftDetailPageState extends State<TukarShiftDetailPage> {
                           ),
                           SizedBox(height: screenWidth * 0.015),
                           Text(
-                            'Diajukan: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(_request.tanggalRequest)}',
+                            'Diajukan: ${DateFormat('dd MMMM yyyy, HH:mm', 'id').format(_request.tanggalRequest)}',
                             style: TextStyle(
                               fontSize: smallFontSize,
                               color: Colors.grey.shade600,
@@ -151,7 +151,7 @@ class _TukarShiftDetailPageState extends State<TukarShiftDetailPage> {
                           if (_request.tanggalDiproses != null) ...[
                             SizedBox(height: screenWidth * 0.007),
                             Text(
-                              'Diproses: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(_request.tanggalDiproses!)}',
+                              'Diproses: ${DateFormat('dd MMMM yyyy, HH:mm', 'id').format(_request.tanggalDiproses!)}',
                               style: TextStyle(
                                 fontSize: smallFontSize,
                                 color: Colors.grey.shade600,
@@ -559,7 +559,7 @@ class _TukarShiftDetailPageState extends State<TukarShiftDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        DateFormat('EEEE', 'id_ID').format(shift.tanggal),
+                        DateFormat('EEEE', 'id').format(shift.tanggal),
                         style: TextStyle(
                           fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
@@ -569,7 +569,7 @@ class _TukarShiftDetailPageState extends State<TukarShiftDetailPage> {
                       Text(
                         DateFormat(
                           'dd MMMM yyyy',
-                          'id_ID',
+                          'id',
                         ).format(shift.tanggal),
                         style: TextStyle(
                           fontSize: bodyFontSize,

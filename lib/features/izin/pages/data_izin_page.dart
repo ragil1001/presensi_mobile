@@ -235,7 +235,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                         Expanded(
                           child: Text(
                             _filter == "Custom" && _customRange != null
-                                ? 'Filter: ${DateFormat('dd MMM yyyy', 'id_ID').format(_customRange!.start)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(_customRange!.end)}'
+                                ? 'Filter: ${DateFormat('dd MMM yyyy', 'id').format(_customRange!.start)} - ${DateFormat('dd MMM yyyy', 'id').format(_customRange!.end)}'
                                 : 'Filter: $_filter',
                             style: const TextStyle(
                               color: AppColors.primary,
@@ -711,7 +711,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                                   child: Text(
                                     DateFormat(
                                       'dd MMM yyyy',
-                                      'id_ID',
+                                      'id',
                                     ).format(izin.tanggalMulai),
                                     style: const TextStyle(
                                       fontSize: 13,
@@ -734,7 +734,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                                   child: Text(
                                     DateFormat(
                                       'dd MMM yyyy',
-                                      'id_ID',
+                                      'id',
                                     ).format(izin.tanggalSelesai),
                                     style: const TextStyle(
                                       fontSize: 13,
@@ -786,7 +786,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(izin.createdAt)}',
+                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id').format(izin.createdAt)}',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,

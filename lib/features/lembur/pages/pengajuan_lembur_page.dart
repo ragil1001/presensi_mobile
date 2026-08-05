@@ -620,7 +620,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                           Text(
                             DateFormat(
                               'EEEE, dd MMMM yyyy',
-                              'id_ID',
+                              'id',
                             ).format(lembur.tanggal),
                             style: TextStyle(
                               fontSize: dateValue,
@@ -640,7 +640,7 @@ class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
                   children: [
                     Flexible(
                       child: Text(
-                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(lembur.createdAt)}',
+                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id').format(lembur.createdAt)}',
                         style: TextStyle(
                           fontSize: footerFont,
                           color: Colors.grey.shade600,

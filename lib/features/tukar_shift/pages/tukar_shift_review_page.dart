@@ -557,7 +557,7 @@ class _TukarShiftReviewPageState extends State<TukarShiftReviewPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        DateFormat('EEEE', 'id_ID').format(shift.tanggal),
+                        DateFormat('EEEE', 'id').format(shift.tanggal),
                         style: TextStyle(
                           fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
@@ -567,7 +567,7 @@ class _TukarShiftReviewPageState extends State<TukarShiftReviewPage> {
                       Text(
                         DateFormat(
                           'dd MMMM yyyy',
-                          'id_ID',
+                          'id',
                         ).format(shift.tanggal),
                         style: TextStyle(
                           fontSize: bodyFontSize,
@@ -736,7 +736,7 @@ class _TukarShiftReviewPageState extends State<TukarShiftReviewPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        DateFormat('EEEE', 'id_ID').format(shift.tanggal),
+                        DateFormat('EEEE', 'id').format(shift.tanggal),
                         style: TextStyle(
                           fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
@@ -746,7 +746,7 @@ class _TukarShiftReviewPageState extends State<TukarShiftReviewPage> {
                       Text(
                         DateFormat(
                           'dd MMMM yyyy',
-                          'id_ID',
+                          'id',
                         ).format(shift.tanggal),
                         style: TextStyle(
                           fontSize: bodyFontSize,

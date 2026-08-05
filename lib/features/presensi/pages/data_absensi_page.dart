@@ -86,7 +86,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
         0,
       ); // last day of month
 
-      final label = DateFormat('MMMM yyyy', 'id_ID').format(periodStart);
+      final label = DateFormat('MMMM yyyy', 'id').format(periodStart);
 
       periods.add(
         PeriodOption(

@@ -391,7 +391,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
       title: _isEditing ? 'Update Pengajuan?' : 'Ajukan Lembur?',
       message: _isEditing
           ? 'Apakah Anda yakin ingin memperbarui pengajuan lembur ini?'
-          : 'Apakah Anda yakin ingin mengajukan lembur pada tanggal ${DateFormat('dd MMMM yyyy', 'id_ID').format(_tanggalLembur!)}?',
+          : 'Apakah Anda yakin ingin mengajukan lembur pada tanggal ${DateFormat('dd MMMM yyyy', 'id').format(_tanggalLembur!)}?',
       confirmText: _isEditing ? 'Update' : 'Ajukan',
       cancelText: 'Batal',
       icon: Icons.send_rounded,
@@ -633,7 +633,7 @@ class _FormPengajuanLemburPageState extends State<FormPengajuanLemburPage> {
                               ? 'Pilih tanggal'
                               : DateFormat(
                                   'EEEE, dd MMMM yyyy',
-                                  'id_ID',
+                                  'id',
                                 ).format(_tanggalLembur!),
                           style: TextStyle(
                             fontSize: 15,
